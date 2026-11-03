@@ -1,0 +1,11 @@
+# Entorno y secretos
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Estado local del flujo de fundación (active-orchestrator)
+.atl/
+.active-orchestrator-state.json.bak

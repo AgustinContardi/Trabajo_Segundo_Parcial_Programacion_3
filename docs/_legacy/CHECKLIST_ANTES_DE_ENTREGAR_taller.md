@@ -1,3 +1,6 @@
+> **Plantilla heredada de un TP anterior (dominio taller mecánico). NO USAR como criterio.**
+> Adaptada a librería en `docs/CHECKLIST_ENTREGA.md`.
+
 # Checklist antes de entregar
 
 > Versión corta y ejecutable de `docs/LECCIONES_APRENDIDAS.md`.
