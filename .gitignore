@@ -7,5 +7,5 @@ __pycache__/
 .ruff_cache/
 
 # Estado local del flujo de fundación (active-orchestrator)
-.atl/
+
 .active-orchestrator-state.json.bak
