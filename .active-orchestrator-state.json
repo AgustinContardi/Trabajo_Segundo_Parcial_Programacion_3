@@ -1,249 +1,257 @@
-{
-    "version": 5,
-    "step": "kb",
-    "owner": "active-orchestrator",
-    "discovery": {
-        "skipped": true,
-        "reason": "La KB se genero en modo ingest desde docs/ (consigna PDF + checklist). No se corrio discovery-research."
-    },
-    "kb": {
-        "created_by": "kb-creator",
-        "source": "ingest",
-        "discovery": {
-            "system_type": "api REST (monolito modular API-first, FastAPI async)",
-            "domain": "libreria (ventas de libros) con acceso, transacciones y despliegue",
-            "scale": "team (single-tenant, un grupo de catedra; decenas de usuarios; concurrencia fuera de alcance)",
-            "stack": [
-                "Python 3.12",
-                "FastAPI 0.111",
-                "SQLModel 0.0.24",
-                "SQLAlchemy 2.0 async",
-                "asyncpg 0.30",
-                "PostgreSQL 16",
-                "Alembic 1.13 (plantilla async)",
-                "pydantic-settings 2.0",
-                "bcrypt 4.0",
-                "PyJWT 2.8",
-                "uvicorn",
-                "Docker 20.10"
-            ],
-            "needs_infra": true,
-            "problem": "Digitalizar la operacion de una libreria: catalogo publico, clientes y ventas del TP cap 1-4, mas acceso con usuarios y roles vigentes leidos de la base en cada peticion, stock como libro mayor de solo agregado, operaciones de negocio atomicas con repositorios + Unit of Work, y despliegue del TP original en un contenedor sobre el VPS."
-        },
-        "files": [
-            "knowledge-base/01_vision_y_objetivos.md",
-            "knowledge-base/02_descripcion_general.md",
-            "knowledge-base/03_actores_y_roles.md",
-            "knowledge-base/04_modelo_de_datos.md",
-            "knowledge-base/05_reglas_de_negocio.md",
-            "knowledge-base/06_funcionalidades.md",
-            "knowledge-base/07_flujos_principales.md",
-            "knowledge-base/08_arquitectura_propuesta.md",
-            "knowledge-base/09_decisiones_y_supuestos.md",
-            "knowledge-base/10_preguntas_abiertas.md",
-            "knowledge-base/11_despliegue_y_devops.md",
-            "knowledge-base/README.md"
-        ]
-    },
-    "roadmap": {
-        "created_by": "roadmap-generator",
-        "changes_file": "CHANGES.md",
-        "changes_count": 22,
-        "critical_path": [
-            "C-01",
-            "C-02",
-            "C-05",
-            "C-11",
-            "C-13",
-            "C-14",
-            "C-15",
-            "C-17",
-            "C-18",
-            "C-19",
-            "C-22"
-        ]
-    },
-    "registry": {
-        "created_by": "skill-registry",
-        "file": ".atl/skill-registry.md"
-    },
-    "skills": {
-        "created_by": "find-skill",
-        "mode": "recommend-only",
-        "recommended": [
-            {
-                "name": "fastapi-templates",
-                "source": "wshobson/agents",
-                "why": "Estructura FastAPI async con repository + service layer, DI, JWT/bcrypt y tests async: calza casi 1:1 con app/core + app/modules de la KB (C-01, C-02)."
-            },
-            {
-                "name": "fastapi-expert",
-                "source": "jeffallan/claude-skills",
-                "why": "FastAPI async + Pydantic v2 + auth JWT y operaciones async de DB, justo el nucleo de C-02/C-03/C-04."
-            },
-            {
-                "name": "fastapi-python",
-                "source": "mindrally/skills",
-                "why": "Patrones FastAPI/Python generales como segunda opinion para endpoints y schemas; repo chico (291 stars), usar como complemento."
-            },
-            {
-                "name": "python-design-patterns",
-                "source": "wshobson/agents",
-                "why": "Guias de capas API/Service/Repository y composicion sobre herencia: sostiene el refactor por modulos y el UoW del proyecto."
-            },
-            {
-                "name": "sqlalchemy-alembic-expert-best-practices-code-review",
-                "source": "wispbit-ai/skills",
-                "why": "Unico match directo a SQLAlchemy + Alembic (migraciones seguras, indices, constraints): clave para C-01/C-02/C-16; repo con solo 8 stars, revisar contenido antes de instalar."
-            },
-            {
-                "name": "postgresql-table-design",
-                "source": "wshobson/agents",
-                "why": "Tipos (NUMERIC para precios, TIMESTAMPTZ), PK identity, indices en FKs y constraints: aplica al modelo de datos y a los CHECK/triggers de repuestos y ordenes."
-            },
-            {
-                "name": "postgresql-optimization",
-                "source": "github/awesome-copilot",
-                "why": "Optimizacion de queries e indices; util en C-17 reportes y en listados paginados de ordenes/clientes."
-            },
-            {
-                "name": "python-testing-patterns",
-                "source": "wshobson/agents",
-                "why": "pytest con fixtures, async testing, mocking y DB testing: base para la suite pytest + httpx de los 20 changes."
-            },
-            {
-                "name": "pytest-coverage",
-                "source": "github/awesome-copilot",
-                "why": "Configuracion de cobertura y CI para pytest; complementa la suite de tests de endpoints."
-            },
-            {
-                "name": "auth-implementation-patterns",
-                "source": "wshobson/agents",
-                "why": "JWT + cookies seguras, bcrypt, RBAC y rate limiting: mapea directo a RN-20/RN-21 y a C-03/C-04."
-            },
-            {
-                "name": "security-and-hardening",
-                "source": "addyosmani/agent-skills",
-                "why": "Threat model primero y hardening de inputs/authz: sirve para el gating por rol y la autoproteccion de ADMIN."
-            },
-            {
-                "name": "security-best-practices",
-                "source": "openai/skills",
-                "why": "Checklist de seguridad general de referencia para revisar C-03/C-04 sin atarse a un framework."
-            },
-            {
-                "name": "api-security-testing",
-                "source": "usestrix/strix",
-                "why": "Pruebas de seguridad de API (BOLA/IDOR, authz): valida que CLIENTE no acceda a ordenes o datos de otros."
-            },
-            {
-                "name": "docker-compose-patterns",
-                "source": "docker/skills",
-                "why": "compose.yaml para PostgreSQL local + healthchecks y orden de arranque: infra necesaria para C-01 y el seed."
-            },
-            {
-                "name": "frontend-design",
-                "source": "anthropics/skills",
-                "why": "Direccion visual y CSS para el dashboard admin y el restyle (C-18/C-19); opcional porque ya hay design-taste-frontend-v1 y emil-design-eng instalados."
-            }
-        ],
-        "installed": [
-            {
-                "scope": "project",
-                "name": "fastapi-templates",
-                "source": "wshobson/agents"
-            },
-            {
-                "scope": "project",
-                "name": "auth-implementation-patterns",
-                "source": "wshobson/agents"
-            },
-            {
-                "scope": "project",
-                "name": "postgresql-table-design",
-                "source": "wshobson/agents"
-            },
-            {
-                "scope": "project",
-                "name": "postgresql-optimization",
-                "source": "github/awesome-copilot"
-            },
-            {
-                "scope": "project",
-                "name": "python-design-patterns",
-                "source": "wshobson/agents"
-            },
-            {
-                "scope": "project",
-                "name": "python-testing-patterns",
-                "source": "wshobson/agents"
-            },
-            {
-                "scope": "project",
-                "name": "security-and-hardening",
-                "source": "addyosmani/agent-skills"
-            },
-            {
-                "scope": "project",
-                "name": "api-security-testing",
-                "source": "usestrix/strix"
-            }
-        ],
-        "notes": {
-            "no_good_match": [
-                "Jinja2 / templates server-side: solo resultados Frappe/ERPNext especificos o skills con 2-9 installs; usar la documentacion de Jinja2 directamente.",
-                "Rate limiting en Python: no hay skill especifica con buena reputacion; cubierto por auth-implementation-patterns.",
-                "Reglas de negocio del dominio taller mecanico: no existe skill; vive en knowledge-base/05_reglas_de_negocio.md."
-            ],
-            "already_installed": [
-                "design-taste-frontend-v1",
-                "emil-design-eng",
-                "openspec-* (6 skills de flujo)"
-            ],
-            "method": "npx skills find (queries: fastapi, sqlalchemy, alembic, pytest, postgresql, python, jwt authentication, api testing, jinja templates, security, pydantic, docker compose, database schema design, rate limiting) + skills.sh leaderboard + GitHub stars via API. Nada instalado."
-        },
-        "selection": {
-            "decided_by": "user",
-            "date": "2026-11-03",
-            "scope": "project (.agents/skills + skills-lock.json)",
-            "excluded": [
-                {
-                    "name": "docker-compose-patterns",
-                    "reason": "descartada explicitamente por el usuario"
+﻿{
+    "version":  5,
+    "step":  "agents",
+    "owner":  "active-orchestrator",
+    "discovery":  {
+                      "skipped":  true,
+                      "reason":  "La KB se genero en modo ingest desde docs/ (consigna PDF + checklist). No se corrio discovery-research."
+                  },
+    "kb":  {
+               "created_by":  "kb-creator",
+               "source":  "ingest",
+               "discovery":  {
+                                 "system_type":  "api REST (monolito modular API-first, FastAPI async)",
+                                 "domain":  "libreria (ventas de libros) con acceso, transacciones y despliegue",
+                                 "scale":  "team (single-tenant, un grupo de catedra; decenas de usuarios; concurrencia fuera de alcance)",
+                                 "stack":  [
+                                               "Python 3.12",
+                                               "FastAPI 0.111",
+                                               "SQLModel 0.0.24",
+                                               "SQLAlchemy 2.0 async",
+                                               "asyncpg 0.30",
+                                               "PostgreSQL 16",
+                                               "Alembic 1.13 (plantilla async)",
+                                               "pydantic-settings 2.0",
+                                               "bcrypt 4.0",
+                                               "PyJWT 2.8",
+                                               "uvicorn",
+                                               "Docker 20.10"
+                                           ],
+                                 "needs_infra":  true,
+                                 "problem":  "Digitalizar la operacion de una libreria: catalogo publico, clientes y ventas del TP cap 1-4, mas acceso con usuarios y roles vigentes leidos de la base en cada peticion, stock como libro mayor de solo agregado, operaciones de negocio atomicas con repositorios + Unit of Work, y despliegue del TP original en un contenedor sobre el VPS."
+                             },
+               "files":  [
+                             "knowledge-base/01_vision_y_objetivos.md",
+                             "knowledge-base/02_descripcion_general.md",
+                             "knowledge-base/03_actores_y_roles.md",
+                             "knowledge-base/04_modelo_de_datos.md",
+                             "knowledge-base/05_reglas_de_negocio.md",
+                             "knowledge-base/06_funcionalidades.md",
+                             "knowledge-base/07_flujos_principales.md",
+                             "knowledge-base/08_arquitectura_propuesta.md",
+                             "knowledge-base/09_decisiones_y_supuestos.md",
+                             "knowledge-base/10_preguntas_abiertas.md",
+                             "knowledge-base/11_despliegue_y_devops.md",
+                             "knowledge-base/README.md"
+                         ]
+           },
+    "roadmap":  {
+                    "created_by":  "roadmap-generator",
+                    "changes_file":  "CHANGES.md",
+                    "changes_count":  22,
+                    "critical_path":  [
+                                          "C-01",
+                                          "C-02",
+                                          "C-05",
+                                          "C-11",
+                                          "C-13",
+                                          "C-14",
+                                          "C-15",
+                                          "C-17",
+                                          "C-18",
+                                          "C-19",
+                                          "C-22"
+                                      ]
                 },
-                {
-                    "name": "sqlalchemy-alembic-expert-best-practices-code-review",
-                    "reason": "repo de 8 stars: riesgo de supply chain desproporcionado"
-                },
-                {
-                    "name": "fastapi-expert",
-                    "reason": "auditoria de seguridad Gen = Fail"
-                },
-                {
-                    "name": "fastapi-python",
-                    "reason": "repo de 291 stars y solapamiento con fastapi-templates/python-design-patterns"
-                },
-                {
-                    "name": "pytest-coverage",
-                    "reason": "configuracion trivial, solapa con python-testing-patterns"
-                },
-                {
-                    "name": "security-best-practices",
-                    "reason": "redundante con security-and-hardening"
-                },
-                {
-                    "name": "frontend-design",
-                    "reason": "la KB no define UI server-rendered; ya hay design-taste-frontend-v1 y emil-design-eng"
-                }
-            ]
-        }
-    },
-    "domain_correction": {
-        "date": "2026-11-03",
-        "decision": "libreria",
-        "decided_by": "user",
-        "evidence": "docs/Parcial_Cap1a6_Consigna.pdf es la consigna autoritativa del parcial (libreria, cap 5-6 + deploy). La KB y CHANGES.md previos eran del dominio taller mecanico, derivados del checklist heredado docs/CHECKLIST_ANTES_DE_ENTREGAR.md (\"Copiar al repo del proximo TP\").",
-        "previous_domain": "taller mecanico",
-        "git_commit_with_previous_artifacts": "ab10875"
-    }
+    "registry":  {
+                     "created_by":  "skill-registry",
+                     "file":  ".atl/skill-registry.md"
+                 },
+    "skills":  {
+                   "created_by":  "find-skill",
+                   "mode":  "recommend-only",
+                   "recommended":  [
+                                       {
+                                           "name":  "fastapi-templates",
+                                           "source":  "wshobson/agents",
+                                           "why":  "Estructura FastAPI async con repository + service layer, DI, JWT/bcrypt y tests async: calza casi 1:1 con app/core + app/modules de la KB (C-01, C-02)."
+                                       },
+                                       {
+                                           "name":  "fastapi-expert",
+                                           "source":  "jeffallan/claude-skills",
+                                           "why":  "FastAPI async + Pydantic v2 + auth JWT y operaciones async de DB, justo el nucleo de C-02/C-03/C-04."
+                                       },
+                                       {
+                                           "name":  "fastapi-python",
+                                           "source":  "mindrally/skills",
+                                           "why":  "Patrones FastAPI/Python generales como segunda opinion para endpoints y schemas; repo chico (291 stars), usar como complemento."
+                                       },
+                                       {
+                                           "name":  "python-design-patterns",
+                                           "source":  "wshobson/agents",
+                                           "why":  "Guias de capas API/Service/Repository y composicion sobre herencia: sostiene el refactor por modulos y el UoW del proyecto."
+                                       },
+                                       {
+                                           "name":  "sqlalchemy-alembic-expert-best-practices-code-review",
+                                           "source":  "wispbit-ai/skills",
+                                           "why":  "Unico match directo a SQLAlchemy + Alembic (migraciones seguras, indices, constraints): clave para C-01/C-02/C-16; repo con solo 8 stars, revisar contenido antes de instalar."
+                                       },
+                                       {
+                                           "name":  "postgresql-table-design",
+                                           "source":  "wshobson/agents",
+                                           "why":  "Tipos (NUMERIC para precios, TIMESTAMPTZ), PK identity, indices en FKs y constraints: aplica al modelo de datos y a los CHECK/triggers de repuestos y ordenes."
+                                       },
+                                       {
+                                           "name":  "postgresql-optimization",
+                                           "source":  "github/awesome-copilot",
+                                           "why":  "Optimizacion de queries e indices; util en C-17 reportes y en listados paginados de ordenes/clientes."
+                                       },
+                                       {
+                                           "name":  "python-testing-patterns",
+                                           "source":  "wshobson/agents",
+                                           "why":  "pytest con fixtures, async testing, mocking y DB testing: base para la suite pytest + httpx de los 20 changes."
+                                       },
+                                       {
+                                           "name":  "pytest-coverage",
+                                           "source":  "github/awesome-copilot",
+                                           "why":  "Configuracion de cobertura y CI para pytest; complementa la suite de tests de endpoints."
+                                       },
+                                       {
+                                           "name":  "auth-implementation-patterns",
+                                           "source":  "wshobson/agents",
+                                           "why":  "JWT + cookies seguras, bcrypt, RBAC y rate limiting: mapea directo a RN-20/RN-21 y a C-03/C-04."
+                                       },
+                                       {
+                                           "name":  "security-and-hardening",
+                                           "source":  "addyosmani/agent-skills",
+                                           "why":  "Threat model primero y hardening de inputs/authz: sirve para el gating por rol y la autoproteccion de ADMIN."
+                                       },
+                                       {
+                                           "name":  "security-best-practices",
+                                           "source":  "openai/skills",
+                                           "why":  "Checklist de seguridad general de referencia para revisar C-03/C-04 sin atarse a un framework."
+                                       },
+                                       {
+                                           "name":  "api-security-testing",
+                                           "source":  "usestrix/strix",
+                                           "why":  "Pruebas de seguridad de API (BOLA/IDOR, authz): valida que CLIENTE no acceda a ordenes o datos de otros."
+                                       },
+                                       {
+                                           "name":  "docker-compose-patterns",
+                                           "source":  "docker/skills",
+                                           "why":  "compose.yaml para PostgreSQL local + healthchecks y orden de arranque: infra necesaria para C-01 y el seed."
+                                       },
+                                       {
+                                           "name":  "frontend-design",
+                                           "source":  "anthropics/skills",
+                                           "why":  "Direccion visual y CSS para el dashboard admin y el restyle (C-18/C-19); opcional porque ya hay design-taste-frontend-v1 y emil-design-eng instalados."
+                                       }
+                                   ],
+                   "installed":  [
+                                     {
+                                         "scope":  "project",
+                                         "name":  "fastapi-templates",
+                                         "source":  "wshobson/agents"
+                                     },
+                                     {
+                                         "scope":  "project",
+                                         "name":  "auth-implementation-patterns",
+                                         "source":  "wshobson/agents"
+                                     },
+                                     {
+                                         "scope":  "project",
+                                         "name":  "postgresql-table-design",
+                                         "source":  "wshobson/agents"
+                                     },
+                                     {
+                                         "scope":  "project",
+                                         "name":  "postgresql-optimization",
+                                         "source":  "github/awesome-copilot"
+                                     },
+                                     {
+                                         "scope":  "project",
+                                         "name":  "python-design-patterns",
+                                         "source":  "wshobson/agents"
+                                     },
+                                     {
+                                         "scope":  "project",
+                                         "name":  "python-testing-patterns",
+                                         "source":  "wshobson/agents"
+                                     },
+                                     {
+                                         "scope":  "project",
+                                         "name":  "security-and-hardening",
+                                         "source":  "addyosmani/agent-skills"
+                                     },
+                                     {
+                                         "scope":  "project",
+                                         "name":  "api-security-testing",
+                                         "source":  "usestrix/strix"
+                                     }
+                                 ],
+                   "notes":  {
+                                 "no_good_match":  [
+                                                       "Jinja2 / templates server-side: solo resultados Frappe/ERPNext especificos o skills con 2-9 installs; usar la documentacion de Jinja2 directamente.",
+                                                       "Rate limiting en Python: no hay skill especifica con buena reputacion; cubierto por auth-implementation-patterns.",
+                                                       "Reglas de negocio del dominio taller mecanico: no existe skill; vive en knowledge-base/05_reglas_de_negocio.md."
+                                                   ],
+                                 "already_installed":  [
+                                                           "design-taste-frontend-v1",
+                                                           "emil-design-eng",
+                                                           "openspec-* (6 skills de flujo)"
+                                                       ],
+                                 "method":  "npx skills find (queries: fastapi, sqlalchemy, alembic, pytest, postgresql, python, jwt authentication, api testing, jinja templates, security, pydantic, docker compose, database schema design, rate limiting) + skills.sh leaderboard + GitHub stars via API. Nada instalado."
+                             },
+                   "selection":  {
+                                     "decided_by":  "user",
+                                     "date":  "2026-11-03",
+                                     "scope":  "project (.agents/skills + skills-lock.json)",
+                                     "excluded":  [
+                                                      {
+                                                          "name":  "docker-compose-patterns",
+                                                          "reason":  "descartada explicitamente por el usuario"
+                                                      },
+                                                      {
+                                                          "name":  "sqlalchemy-alembic-expert-best-practices-code-review",
+                                                          "reason":  "repo de 8 stars: riesgo de supply chain desproporcionado"
+                                                      },
+                                                      {
+                                                          "name":  "fastapi-expert",
+                                                          "reason":  "auditoria de seguridad Gen = Fail"
+                                                      },
+                                                      {
+                                                          "name":  "fastapi-python",
+                                                          "reason":  "repo de 291 stars y solapamiento con fastapi-templates/python-design-patterns"
+                                                      },
+                                                      {
+                                                          "name":  "pytest-coverage",
+                                                          "reason":  "configuracion trivial, solapa con python-testing-patterns"
+                                                      },
+                                                      {
+                                                          "name":  "security-best-practices",
+                                                          "reason":  "redundante con security-and-hardening"
+                                                      },
+                                                      {
+                                                          "name":  "frontend-design",
+                                                          "reason":  "la KB no define UI server-rendered; ya hay design-taste-frontend-v1 y emil-design-eng"
+                                                      }
+                                                  ]
+                                 }
+               },
+    "domain_correction":  {
+                              "date":  "2026-11-03",
+                              "decision":  "libreria",
+                              "decided_by":  "user",
+                              "evidence":  "docs/Parcial_Cap1a6_Consigna.pdf es la consigna autoritativa del parcial (libreria, cap 5-6 + deploy). La KB y CHANGES.md previos eran del dominio taller mecanico, derivados del checklist heredado docs/CHECKLIST_ANTES_DE_ENTREGAR.md (\"Copiar al repo del proximo TP\").",
+                              "previous_domain":  "taller mecanico",
+                              "git_commit_with_previous_artifacts":  "ab10875"
+                          },
+    "pending_inputs":  {
+                           "chapter_docs_1_4":  {
+                                                    "status":  "requested",
+                                                    "why":  "C-01 necesita el baseline del TP cap 1-4 (catalogo, clientes, ventas) que no esta en el repo. La KB marca las columnas heredadas como \"(heredado TP cap 1-4 - confirmar contra el repo)\".",
+                                                    "action":  "Al recibir los documentos: pasada de actualizacion de KB (kb-creator, no rebuild) y luego proponer C-01."
+                                                },
+                           "visual_design":  "sin decidir: la consigna es API pura, no hay UI en los 22 changes"
+                       }
 }
