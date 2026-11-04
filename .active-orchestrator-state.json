@@ -1,6 +1,6 @@
 ﻿{
     "version":  5,
-    "step":  "agents",
+    "step":  "done",
     "owner":  "active-orchestrator",
     "discovery":  {
                       "skipped":  true,
@@ -65,8 +65,57 @@
                 },
     "registry":  {
                      "created_by":  "skill-registry",
-                     "file":  ".atl/skill-registry.md"
+                     "file":  ".atl/skill-registry.md",
+                     "refreshed":  "2026-11-03",
+                     "refreshed_for":  "dominio libreria + roadmap de 22 changes",
+                     "versioned_in_git":  true
                  },
+    "agents":  {
+                   "created_by":  "agent-instruction",
+                   "files":  [
+                                 "AGENTS.md",
+                                 "CLAUDE.md"
+                             ],
+                   "files_identical":  true,
+                   "generated_from":  [
+                                          "knowledge-base/",
+                                          "CHANGES.md",
+                                          ".atl/skill-registry.md"
+                                      ],
+                   "hard_rules":  {
+                                      "count":  18,
+                                      "confirmed_by":  "user",
+                                      "date":  "2026-11-03",
+                                      "groups":  {
+                                                     "arquitectura_y_capas":  [
+                                                                                  "NUNCA construir el UoW en el servicio -> lo construye el router (CV-01)",
+                                                                                  "NUNCA commit() en un repositorio -> solo flush(), confirma el __aexit__ del UoW (CV-02)",
+                                                                                  "NUNCA pasar la sesion a un servicio -> recibe el UoW",
+                                                                                  "NUNCA precarga (selectinload) fuera de repository.py (CV-03)",
+                                                                                  "NUNCA logica de negocio en el router"
+                                                                              ],
+                                                     "datos":  [
+                                                                   "NUNCA float para dinero -> NUMERIC + Decimal",
+                                                                   "NUNCA fechas sin zona -> timestamptz",
+                                                                   "NUNCA create_all -> el esquema nace solo de Alembic",
+                                                                   "NUNCA editar una migracion ya aplicada",
+                                                                   "NUNCA una FK sin indice",
+                                                                   "NUNCA escribir stock directo -> solo via movimiento_stock (RN-11, RN-12)"
+                                                               ],
+                                                     "seguridad":  [
+                                                                       "NUNCA un secreto con valor por defecto",
+                                                                       "NUNCA token en el cuerpo ni en Authorization -> solo cookie HttpOnly",
+                                                                       "NUNCA bcrypt dentro del event loop -> to_thread + semaforo",
+                                                                       "NUNCA autorizar con los roles del token -> releer asignacion_rol vigente (RN-04)"
+                                                                   ],
+                                                     "proceso":  [
+                                                                     "NUNCA proponer un change con dependencias sin [x] ni agregar reglas ajenas a la consigna",
+                                                                     "NUNCA commit ni push sin pedido explicito",
+                                                                     "Commits en Conventional Commits, sin co-autoria de IA"
+                                                                 ]
+                                                 }
+                                  }
+               },
     "skills":  {
                    "created_by":  "find-skill",
                    "mode":  "recommend-only",
@@ -252,6 +301,35 @@
                                                     "why":  "C-01 necesita el baseline del TP cap 1-4 (catalogo, clientes, ventas) que no esta en el repo. La KB marca las columnas heredadas como \"(heredado TP cap 1-4 - confirmar contra el repo)\".",
                                                     "action":  "Al recibir los documentos: pasada de actualizacion de KB (kb-creator, no rebuild) y luego proponer C-01."
                                                 },
-                           "visual_design":  "sin decidir: la consigna es API pura, no hay UI en los 22 changes"
-                       }
+                           "visual_design":  {
+                                                "mode":  "off",
+                                                "decided_by":  "user",
+                                                "date":  "2026-11-03",
+                                                "reason":  "La consigna es API pura (JSON + OpenAPI): ninguno de los 22 changes tiene UI. No hay design-system/ ni gate de mockups. Si aparece una UI, revisar esta decision explicitamente (no crear un design system por iniciativa propia)."
+                                            }
+                       },
+    "foundation":  {
+                       "completed_at":  "2026-11-03",
+                       "phases_completed":  [
+                                                "openspec-init",
+                                                "kb-creator",
+                                                "roadmap-generator",
+                                                "find-skill",
+                                                "skill-registry",
+                                                "agent-instruction"
+                                            ],
+                                                "discovery":  "skipped (KB en modo ingest desde la consigna)",
+                       "artifacts":  {
+                                         "openspec_dir":  true,
+                                         "kb_files":  12,
+                                         "changes":  22,
+                                         "project_skills":  8,
+                                         "registry":  ".atl/skill-registry.md",
+                                         "agent_instructions":  [
+                                                                    "AGENTS.md",
+                                                                    "CLAUDE.md"
+                                                                ]
+                                     },
+                       "next_action":  "Esperar los documentos de los capitulos 1-4; con ellos, pasada de actualizacion de knowledge-base/ y luego /opsx:propose C-01-baseline-tp-y-fundacion."
+                   }
 }
