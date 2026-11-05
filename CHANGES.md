@@ -161,7 +161,10 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-01] baseline-tp-y-fundacion
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[~]` en curso — mitad (A) implementada y verificada; mitad (B) **bloqueada** por el TP
+  cap. 1-4, que no está en el repo. Change OpenSpec:
+  `openspec/changes/c-01-baseline-tp-y-fundacion/` · handoff: `docs/HANDOFF_BASELINE_TP_CAP1a4.md`.
+  **No** marcar `[x]` hasta cerrar el grupo 7.
 - **Scope**:
   - Traer el **TP cap. 1-4 ya entregado** a `parcial/` (código, `requirements.txt`, `alembic.ini`,
     `migrations/0001` y `0002`) y una copia **intacta** a `despliegue/`. No reescribir su lógica
@@ -973,13 +976,21 @@ caro pero donde el trabajo es más acotado.
 **Gates de paralelismo**: 10 (`GATE 0`…`GATE 9`), con dos forks grandes: `GATE 0` abre la vía de
 despliegue y `GATE 4` abre catálogo, ventas y cambio de contraseña a la vez.
 
-**Primer change recomendado**: `C-01` (baseline-tp-y-fundacion).
+**Primer change recomendado**: `C-01` (baseline-tp-y-fundacion) — **ya propuesto**, en curso.
 
-Para arrancar: `/opsx:propose C-01-baseline-tp-y-fundacion`
+Estado de `C-01`:
 
-> **Antes de `C-01`**: conseguir el `.zip` o el repositorio del TP cap. 1-4 **tal como se entregó**. De ahí
-> salen `parcial/` y `despliegue/` y se cierran las columnas heredadas (`SU-01`, `SU-07`, `SU-08`, `SU-09`).
-> Sin ese material, `C-01` no se puede cerrar y `C-20` arranca a ciegas.
+- Mitad **(A)** — grupos 1 a 6 de `tasks.md`: **implementada y verificada** en `parcial/`
+  (`Settings` fail-fast, motor y sesión en el `lifespan`, `/health/live` y `/health/ready`, Alembic sin
+  credenciales, `env.example`, estructura de paquetes).
+- Mitad **(B)** — grupo 7: **BLOQUEADA** por el TP cap. 1-4. Qué falta y qué tiene que hacer quien lo
+  tenga: [`docs/HANDOFF_BASELINE_TP_CAP1a4.md`](docs/HANDOFF_BASELINE_TP_CAP1a4.md).
+
+Para continuar: `/opsx:apply c-01-baseline-tp-y-fundacion` — y pedir el grupo 7 cuando el material esté.
+
+> **Antes de cerrar `C-01`**: conseguir el `.zip` o el repositorio del TP cap. 1-4 **tal como se entregó**.
+> De ahí salen `parcial/` y `despliegue/` y se cierran las columnas heredadas (`SU-01`, `SU-07`, `SU-08`,
+> `SU-09`). Sin ese material, `C-01` no se puede cerrar y `C-20` arranca a ciegas.
 
 
 
