@@ -1,0 +1,74 @@
+# Parcial «la librería» — capítulos 1 a 6
+
+API para la gestión de una librería: catálogo, clientes, ventas, stock y acceso
+con roles. Este directorio es el proyecto que se entrega en el repositorio; el
+TP de los capítulos 1 a 4 se adopta como base y se conserva sin reescribir su
+lógica.
+
+## Integrantes
+
+> Completar con nombres y apellidos antes de la entrega.
+
+- _(integrante 1)_
+- _(integrante 2)_
+
+## Requisitos
+
+- Python 3.12
+- PostgreSQL 16 accesible (la base puede estar vacía: el esquema se crea con
+  Alembic, nunca con `create_all`)
+- `pip` del entorno virtual
+
+## Puesta en marcha desde cero
+
+Todos los comandos se corren **dentro de `parcial/`**.
+
+1. Crear y activar el entorno virtual:
+
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   ```
+
+2. Instalar las dependencias:
+
+   ```powershell
+   python -m pip install -r requirements.txt
+   ```
+
+3. Crear el `.env` a partir del ejemplo y completar los valores:
+
+   ```powershell
+   Copy-Item env.example .env
+   ```
+
+   Editar `.env` con el usuario, la contraseña, la base, el host y el puerto de
+   PostgreSQL. Generar una clave de firma propia, por ejemplo:
+
+   ```powershell
+   python -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+
+   y pegarla en `JWT_SECRET`. El `.env` **no** se versiona.
+
+4. Aplicar las migraciones sobre la base vacía:
+
+   ```powershell
+   alembic upgrade head
+   ```
+
+   (Con este change todavía no hay migraciones propias: el historial queda
+   vacío. Las del TP cap. 1-4 se incorporan al desbloquear el baseline.)
+
+5. Levantar la API:
+
+   ```powershell
+   uvicorn main:app --reload
+   ```
+
+6. Comprobar la salud:
+
+   ```powershell
+   Invoke-RestMethod http://127.0.0.1:8000/health/live
+   Invoke-RestMethod http://127.0.0.1:8000/health/ready
+   ```
