@@ -69,6 +69,7 @@ erDiagram
     editorial {
         bigint id PK
         varchar nombre UK
+        varchar pais
     }
     genero {
         bigint id PK
@@ -76,8 +77,8 @@ erDiagram
     }
     autor {
         bigint id PK
-        varchar nombre "heredado, confirmar"
-        varchar apellido "heredado, confirmar"
+        varchar nombre
+        varchar nacionalidad
     }
     libro {
         bigint id PK
@@ -86,7 +87,7 @@ erDiagram
         numeric precio "CHECK precio mayor a 0"
         int stock "CHECK stock mayor o igual a 0"
         bigint editorial_id FK
-        bigint genero_id FK
+        bigint genero_id FK "nulo permitido"
         timestamptz borrado_en "NULL significa vigente"
     }
     libro_autor {
@@ -97,13 +98,14 @@ erDiagram
     }
     cliente {
         bigint id PK
-        varchar nombre "heredado, confirmar"
+        varchar nombre
         varchar email UK
         bigint usuario_id FK "UNIQUE, nulo permitido"
     }
     perfil_cliente {
         bigint id PK
         bigint cliente_id FK "UNIQUE, uno a uno"
+        varchar telefono
     }
     venta {
         bigint id PK
@@ -261,11 +263,10 @@ Restricciones e índices:
 | Columna | Tipo | Null | Def. | Restricción |
 |---|---|---|---|---|
 | `id` | bigint identity | NN | — | PK |
-| `nombre` | varchar | NN | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
-| `apellido` | varchar | NN | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
+| `nombre` | varchar | NN | — | `(confirmado por la consigna: cliente tiene id, nombre, email)` |
+| `apellido` | varchar | NN | — | `(heredado TP cap 1-4 — confirmar contra el repo; NO aparece en la consigna del TP, que sólo lista nombre y email)` |
 | `email` | varchar | NN | — | **UNIQUE** — «`email` sigue UNIQUE» (RN-01) |
-| `telefono` | varchar | NULL | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
-| **`usuario_id`** | bigint | **NULL** | `NULL` | **UNIQUE**; **FK → `usuario.id`**; **nuevo** |
+| `usuario_id` | bigint | **NULL** | `NULL` | **UNIQUE**; **FK → `usuario.id`**; **nuevo** |
 
 - `usuario_id` **nulo permitido**: un cliente puede tener, o no, acceso por la web. Los clientes de
   mostrador (Tomás Ríos en el seed) no tienen usuario.
@@ -282,6 +283,7 @@ Restricciones e índices:
 |---|---|---|---|---|
 | `id` | bigint identity | NN | — | PK |
 | `cliente_id` | bigint | NN | — | **FK → `cliente.id`**, UNIQUE (1—1) |
+| `telefono` | varchar | NULL | — | `(confirmado por la consigna: perfil_cliente tiene id, cliente_id, telefono, direccion)` |
 | `direccion` | varchar | NULL | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
 | `fecha_nacimiento` | date | NULL | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
 | … | — | — | — | Cualquier otra columna: `(heredado TP cap 1-4 — confirmar contra el repo)` |
@@ -301,7 +303,7 @@ Restricciones e índices:
 | `precio` | **numeric** | NN | — | **`CHECK (precio > 0)`** sigue vigente |
 | `stock` | integer | NN | — | **`CHECK (stock >= 0)`** sigue vigente; **sólo se escribe por movimientos** |
 | `editorial_id` | bigint | NN | — | **FK → `editorial.id`**; índice |
-| `genero_id` | bigint | NN | — | **FK → `genero.id`**; índice |
+| `genero_id` | bigint | **NULL** | — | **FK → `genero.id`**; índice; **nulo permitido** (consigna) |
 | **`borrado_en`** | **timestamptz** | **NULL** | `NULL` | **Nuevo**, «con zona»; `NULL` = vigente |
 | … | — | — | — | Otras columnas del TP (año, páginas, etc.): `(heredado TP cap 1-4 — confirmar contra el repo)` |
 
@@ -319,11 +321,11 @@ Restricciones e índices:
 
 | Columna | Tipo | Null | Def. | Restricción |
 |---|---|---|---|---|
-| `libro_id` | bigint | NN | — | **FK → `libro.id`** |
-| `autor_id` | bigint | NN | — | **FK → `autor.id`** |
-| `rol` | varchar | NN | — | Valores vistos en la consigna: `'coautor'` (ejemplo de `POST /libros`) |
-| `orden` | integer | NN | — | Orden de presentación |
-| … | — | — | — | PK/UNIQUE compuesta: `(heredado TP cap 1-4 — confirmar contra el repo)` |
+| `libro_id` | bigint | NN | — | **FK → `libro.id`**; índice |
+| `autor_id` | bigint | NN | — | **FK → `autor.id`**; índice |
+| `rol` | varchar | NN | — | **`CHECK (rol IN ('autor','coautor','traductor','ilustrador'))`** (consigna) |
+| `orden` | integer | NN | — | **`CHECK (orden >= 1)`** (consigna) |
+| … | — | — | — | **PK (`libro_id`, `autor_id`)** (consigna) |
 
 Vive en el módulo `libros` (consigna, p. 9). El alta de libro recibe `autores: [{autor_id, rol,
 orden}]`.
@@ -336,6 +338,7 @@ orden}]`.
 |---|---|---|---|---|
 | `id` | bigint identity | NN | — | PK |
 | `nombre` | varchar | NN | — | **UNIQUE** (RN-01); 409 con mensaje propio |
+| `pais` | varchar | NN | — | `(confirmado por la consigna: editorial tiene id, nombre, pais)` |
 | … | — | — | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
 
 ### `genero` — HEREDADA, SIN CAMBIOS
@@ -351,8 +354,8 @@ orden}]`.
 | Columna | Tipo | Null | Def. | Restricción |
 |---|---|---|---|---|
 | `id` | bigint identity | NN | — | PK |
-| `nombre` | varchar | NN | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
-| `apellido` | varchar | NN | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
+| `nombre` | varchar | NN | — | `(confirmado por la consigna: autor tiene id, nombre, nacionalidad)` |
+| `nacionalidad` | varchar | NN | — | `(confirmado por la consigna: autor tiene id, nombre, nacionalidad)` |
 | … | — | — | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
 
 ---
@@ -363,9 +366,9 @@ orden}]`.
 |---|---|---|---|---|
 | `id` | bigint identity | NN | — | PK |
 | `cliente_id` | bigint | NN | — | **FK → `cliente.id`**; índice |
-| `fecha` | timestamptz | NN | `now()` | `(heredado TP cap 1-4 — confirmar contra el repo)` |
-| `total` | **numeric** | NN | — | Calculado por el servidor; nunca viaja en el cuerpo |
-| `usuario_id` | bigint | ? | — | Vendedor que la registró: **`(heredado? — confirmar contra el repo)`**. Ver `10_preguntas_abiertas.md` (AB-02) |
+| `fecha` | timestamptz | NN | `now()` | `(confirmado por la consigna: fecha con zona horaria)` |
+| `total` | **numeric** | NN | — | **`CHECK (total >= 0)`**; calculado por el servidor; nunca viaja en el cuerpo |
+| `usuario_id` | bigint | ? | — | Vendedor que la registró: **`(heredado? — confirmar contra el repo)`**. **La consigna del TP NO lista `usuario_id` en venta** (SU-07). Ver `10_preguntas_abiertas.md` (AB-02) |
 | … | — | — | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
 
 - **Las ventas no se modifican**: no hay `PATCH` (RN-09).
@@ -379,8 +382,8 @@ orden}]`.
 | `id` | bigint identity | NN | — | PK |
 | `venta_id` | bigint | NN | — | **FK → `venta.id`**; índice |
 | `libro_id` | bigint | NN | — | **FK → `libro.id`**; índice |
-| `cantidad` | integer | NN | — | `> 0`; sin libros repetidos en una misma venta (RN-09) |
-| `precio_unitario` | **numeric** | NN | — | **Copiado del libro al registrar**; el nombre exacto es `(heredado TP cap 1-4 — confirmar contra el repo)` |
+| `cantidad` | integer | NN | — | **`CHECK (cantidad > 0)`**; sin libros repetidos en una misma venta (RN-09) |
+| `precio_unitario` | **numeric** | NN | — | **`CHECK (precio_unitario > 0)`**; **copiado del libro al registrar** (nombre confirmado por la consigna) |
 | … | — | — | — | `(heredado TP cap 1-4 — confirmar contra el repo)` |
 
 Vive en el módulo `ventas` (consigna, p. 9).
@@ -434,6 +437,14 @@ Ficciones se cargan con 11 y 10) y `−1`, `−2` (salidas de la venta 1).
 | `movimiento_stock` | CHECK | `cantidad <> 0` | Un movimiento de cero no es un movimiento |
 | `movimiento_stock` | índice | `(libro_id)`, `(venta_id)`, `(usuario_id)` | FKs |
 | `movimiento_stock` | disparador | rechaza `UPDATE` y `DELETE` | RN-12 |
+| `editorial` | UNIQUE | `(nombre)` | RN-01 (TP) |
+| `genero` | UNIQUE | `(nombre)` | RN-01 (TP) |
+| `perfil_cliente` | UNIQUE | `(cliente_id)` | RN-09 (TP): a lo sumo un perfil por cliente |
+| `libro_autor` | PK | `(libro_id, autor_id)` | consigna |
+| `libro_autor` | índice | `(libro_id)`, `(autor_id)` | FKs |
+| `libro_autor` | CHECK | `rol IN ('autor','coautor','traductor','ilustrador')`, `orden >= 1` | consigna |
+| `venta` | CHECK | `total >= 0` | consigna |
+| `renglon_venta` | CHECK | `cantidad > 0`, `precio_unitario > 0` | consigna |
 
 ### Las dos trampas que la consigna remarca
 

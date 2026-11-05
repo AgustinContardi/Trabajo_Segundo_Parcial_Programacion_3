@@ -1,0 +1,5 @@
+# Directorio de revisiones de Alembic.
+
+Las migraciones `0001` y `0002` del TP cap. 1-4 se incorporan acá al desbloquear
+el baseline (grupo 7 de `C-01`); `0003` y `0004` llegan con `C-03`/`C-04`.
+Este placeholder sólo conserva el directorio en el control de versiones.

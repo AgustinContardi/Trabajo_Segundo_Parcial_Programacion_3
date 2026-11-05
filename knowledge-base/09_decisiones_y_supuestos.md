@@ -184,6 +184,19 @@ rechazan con 422.
 1..100 (default 20), página fuera de rango → 422, cero resultados → una página vacía.
 **Trade-offs**: una consulta extra de `count` por listado.
 
+### DD-19 — Migraciones del TP cap 1-4: `genero` se agrega en la segunda
+
+**Decisión**: las dos migraciones heredadas del TP se generan con `--autogenerate` en este orden:
+la primera crea **todas las tablas excepto `genero`**, y la segunda agrega la tabla `genero` y la
+columna `libro.genero_id`.
+**Contexto**: la consigna (Ejercicio 3, p. 8) exige «al menos dos migraciones generadas con
+`--autogenerate`: la primera con todas las tablas menos `genero`, y la segunda que agrega la tabla
+`genero` y la columna `libro.genero_id`».
+**Justificación**: `libro.genero_id` es opcional (nulo permitido); generar `genero` después permite
+que la primera migración no dependa de ella.
+**Trade-offs**: la segunda migración debe declarar la FK e índice de `libro.genero_id`; al hacer
+`downgrade` hay que borrar la columna antes que la tabla.
+
 ---
 
 ## Supuestos inferidos
@@ -314,3 +327,21 @@ RN-07 (5 y 60) y el ejemplo de `expira_en_segundos = 1800`.
 **Origen**: `get_usuario_actual` responde 401 «si el usuario no existe o está inactivo».
 **Riesgo si es falso**: mínimo.
 **Cómo validar**: Ejercicio 5 de la consigna.
+
+### SU-16 — Columnas del TP cap 1-4 no restated en la consigna
+
+**Supuesto**: la consigna del TP lista explícitamente `editorial.pais`, `autor.nacionalidad` y
+`perfil_cliente.telefono`, que faltaban en la KB (corregidos). `cliente.apellido` **no** aparece en la
+consigna del TP (que sólo lista `id, nombre, email`): se mantiene como «confirmar contra el repo» y
+probablemente **no existe** en el TP. `libro.genero_id` es **nulo permitido** según la consigna.
+**Origen**: tabla «Modelo de dominio» (p. 3-4) y las notas de la KB (SU-07, SU-08).
+**Riesgo si es falso**: bajo; afecta sólo nombres de columnas y nullability.
+**Cómo validar**: migraciones del TP cap 1-4.
+
+**Supuesto**: la consigna del TP lista explícitamente `editorial.pais`, `autor.nacionalidad` y
+`perfil_cliente.telefono`, que faltaban en la KB (corregidos). `cliente.apellido` **no** aparece en la
+consigna del TP (que sólo lista `id, nombre, email`): se mantiene como «confirmar contra el repo» y
+probablemente **no existe** en el TP. `libro.genero_id` es **nulo permitido** según la consigna.
+**Origen**: tabla «Modelo de dominio» (p. 3-4) y las notas de la KB (SU-07, SU-08).
+**Riesgo si es falso**: bajo; afecta sólo nombres de columnas y nullability.
+**Cómo validar**: migraciones del TP cap 1-4.

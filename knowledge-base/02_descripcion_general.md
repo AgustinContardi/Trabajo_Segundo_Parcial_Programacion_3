@@ -14,6 +14,7 @@ Versiones mínimas exigidas por la consigna («Requisitos técnicos», p. 3-4):
 | Base de datos | PostgreSQL | 16 | Base de datos; en el despliegue, la que ya tiene el servidor |
 | Migraciones | Alembic | 1.13 (plantilla asincrónica) | Migraciones |
 | Configuración | pydantic-settings | 2.0 | Configuración leída del entorno |
+| Configuración | python-dotenv | 1.0 | Lectura del archivo `.env` (consigna, «Requisitos técnicos») |
 | Hash | bcrypt | 4.0 | Hash de las contraseñas |
 | Token | PyJWT | 2.8 | Token firmado |
 | Servidor ASGI | uvicorn | el que instala `fastapi[standard]` | Servidor ASGI |
@@ -111,7 +112,8 @@ vez. Detalle completo y códigos en `02` (tabla siguiente) y en `06_funcionalida
 | POST | `/usuarios/{id}/roles` | ADMIN | 201, 404, 409, 422 |
 | DELETE | `/usuarios/{id}/roles/{rol}` | ADMIN | 200, 404, 409 |
 | GET | `/eventos` (`page`, `size`) | ADMIN | 200, 422 |
-| POST | `/editoriales`, `/generos`, `/autores` | ADMIN | 201, 409, 422 |
+| POST | `/editoriales`, `/generos` | ADMIN | 201, 409, 422 |
+| POST | `/autores` | ADMIN | 201, 422 |
 | PATCH | `/editoriales/{id}`, `/autores/{id}` | ADMIN | 200, 404, 409, 422 |
 | POST | `/libros` (con `autores` y `stock_inicial`) | ADMIN | 201, 409, 422 |
 | PATCH | `/libros/{id}` (título y precio; el stock no) | ADMIN | 200, 404, 409, 422 |

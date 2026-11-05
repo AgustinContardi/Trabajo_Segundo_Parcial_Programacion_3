@@ -29,7 +29,15 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# C-03/C-04: importar acá `app.modules.*.models` antes de autogenerar.
+# Importar los modelos de dominio para que autogenerate los vea.
+import app.modules.editoriales.models  # noqa: F401
+import app.modules.generos.models  # noqa: F401
+import app.modules.autores.models  # noqa: F401
+import app.modules.libros.models  # noqa: F401
+import app.modules.clientes.models  # noqa: F401
+import app.modules.usuarios.models  # noqa: F401
+import app.modules.ventas.models  # noqa: F401
+
 target_metadata = SQLModel.metadata
 
 

@@ -33,6 +33,16 @@ from app.core.config import get_settings
 from app.core.database import crear_engine, crear_sessionmaker
 from app.modules.health.router import router as health_router
 
+# Importar los modelos de dominio para que SQLModel registre las tablas y
+# resuelva las relaciones (back_populates) al arrancar y al autogenerar.
+import app.modules.editoriales.models  # noqa: F401
+import app.modules.generos.models  # noqa: F401
+import app.modules.autores.models  # noqa: F401
+import app.modules.libros.models  # noqa: F401
+import app.modules.clientes.models  # noqa: F401
+import app.modules.usuarios.models  # noqa: F401
+import app.modules.ventas.models  # noqa: F401
+
 logger = logging.getLogger("libreria")
 
 # Contraseña ficticia sobre la que se calcula el hash de comparación del login.
@@ -66,7 +76,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("Aplicación detenida; pool de conexiones liberado")
 
 
+from fastapi.exceptions import RequestValidationError
+
 app = FastAPI(title="la librería", version="0.1.0", lifespan=lifespan)
 
-# Grupo abierto: salud (y, en changes posteriores, /auth y catálogo).
+# Manejador transversal de validación de entrada: nunca propaga (RN-15).
+from app.core.errors import manejador_request_validation_error
+
+app.add_exception_handler(RequestValidationError, manejador_request_validation_error)
+
+# Grupo abierto: salud + catálogo + clientes + ventas (TP cap. 1-4).
 app.include_router(health_router)
+from app.modules.editoriales.router import router as editoriales_router
+from app.modules.generos.router import router as generos_router
+from app.modules.autores.router import router as autores_router
+from app.modules.libros.router import router as libros_router
+from app.modules.clientes.router import router as clientes_router
+from app.modules.ventas.router import router as ventas_router
+
+app.include_router(editoriales_router)
+app.include_router(generos_router)
+app.include_router(autores_router)
+app.include_router(libros_router)
+app.include_router(clientes_router)
+app.include_router(ventas_router)

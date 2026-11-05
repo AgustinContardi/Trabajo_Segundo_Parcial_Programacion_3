@@ -622,3 +622,19 @@ Detalle completo de la épica 7 en **`11_despliegue_y_devops.md`**.
 | `GET /ventas`, `GET /ventas/{id}` | US-041, US-042 | RN-14 |
 | `GET /mis-ventas` | US-043 | RN-14 |
 | `GET /health/*` | US-050, US-051 | — |
+
+## Casos mínimos de la consigna (TP cap 1-4) — trazabilidad
+
+La consigna (p. 10-11) define ocho casos mínimos `C-01…C-08`. El parcial los **renumeró y amplió** a
+`C-01…C-16`; esta tabla dice dónde queda cada uno en la numeración actual.
+
+| Consigna (TP) | Qué demuestra | Dónde vive hoy |
+|---|---|---|
+| C-01 (TP) | Parámetro de ruta que no es entero → 422, sin ejecutar el handler | C-01 (parcial) · US-021 |
+| C-02 (TP) | ISBN o email repetido → 409 con mensaje propio | C-02 (parcial) · US-001, US-023 |
+| C-03 (TP) | Segundo perfil para el mismo cliente → 409 | US-032 (sin número propio en el parcial) |
+| C-04 (TP) | Libro con editorial o autor inexistente → 409 | US-023 (FK inexistente → 409) |
+| C-05 (TP) | Venta con libro o cliente inexistente → 409 | US-040 (cliente/libro inexistente → 409) |
+| C-06 (TP) | Venta válida con dos renglones → 201, precios copiados, total calculado | C-10 (parcial) · US-040 |
+| C-07 (TP) | Detalle de un libro y de una venta: cantidad fija de consultas | C-15 (parcial) · US-021, US-042 |
+| C-08 (TP) | Búsqueda por título con `' OR '1'='1` → 200 con lista vacía | C-16 (parcial) · US-020 |

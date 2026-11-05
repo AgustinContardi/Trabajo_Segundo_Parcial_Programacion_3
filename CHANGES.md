@@ -161,10 +161,11 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-01] baseline-tp-y-fundacion
 
-- **Estado**: `[~]` en curso — mitad (A) implementada y verificada; mitad (B) **bloqueada** por el TP
-  cap. 1-4, que no está en el repo. Change OpenSpec:
+- **Estado**: `[x]` cerrado — mitad (A) implementada y verificada; mitad (B) cerrada: TP cap. 1-4
+  implementado desde la consigna (`docs/TP_Cap1a4_Consigna (1).pdf`), adoptado en `parcial/`,
+  copiado intacto a `despliegue/`, migraciones `0001`/`0002` aplicadas, baseline documentado en
+  `docs/BASELINE_TP_CAP1a4.md`. Change OpenSpec:
   `openspec/changes/c-01-baseline-tp-y-fundacion/` · handoff: `docs/HANDOFF_BASELINE_TP_CAP1a4.md`.
-  **No** marcar `[x]` hasta cerrar el grupo 7.
 - **Scope**:
   - Traer el **TP cap. 1-4 ya entregado** a `parcial/` (código, `requirements.txt`, `alembic.ini`,
     `migrations/0001` y `0002`) y una copia **intacta** a `despliegue/`. No reescribir su lógica
@@ -205,7 +206,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-02] core-repositorios-uow-paginacion
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — archivado como `2026-11-05-c-02-core-repositorios-uow-paginacion`. Entrega `BaseRepository[T]` + `SoftDeleteRepository[T]` (`parcial/app/core/repository.py`), `UnitOfWork` (`parcial/app/core/unit_of_work.py`) y `Pagina[T]` + `paginar()` (`parcial/app/core/paginacion.py`). Verificado: imports OK, py_compile OK, sin `commit()` en repositorios, sin `close()` en UoW, sin `create_all`.
 - **Scope**:
   - `app/core/repository.py`: `BaseRepository[T]` con constructor `(session, model_class)` —los genéricos
     se borran en runtime— y `get_by_id`, `get_all`, `count`, `add`, `update`, `delete`; `add`/`update`
@@ -247,7 +248,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-03] modelos-acceso-stock
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — archivado como `2026-11-05-c-03-modelos-acceso-stock`. Entrega los modelos de acceso (`Usuario`, `AsignacionRol`, `IntentoAcceso`, `EventoSeguridad`), `MovimientoStock`, `Libro.borrado_en` con índice parcial del ISBN, y `Cliente.usuario_id` nullable+UNIQUE con navegación en ambos extremos. Verificado: configure_mappers OK, columnas exactas (6/7/5/4/7), sin float, sin create_all.
 - **Scope**:
   - `app/modules/usuarios/models.py`: `Usuario` (6 columnas, `email` **UNIQUE**, **sin** columna `rol`),
     `AsignacionRol` (7 columnas, `CHECK (rol IN ('ADMIN','VENDEDOR','CLIENTE'))`, **índice único parcial**
@@ -285,7 +286,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-04] migraciones-0003-0004
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — archivado como `2026-11-05-c-04-migraciones-0003-0004`. Entrega `0003` (autogenerada, leída y corregida a mano: 8 piezas, índices parciales, timestamptz, FKs con índice) y `0004` (trigger append-only sobre `movimiento_stock`, escrita a mano). Round-trip `upgrade head → downgrade base → upgrade head` OK, `alembic check` limpio, sin `create_all`.
 - **Scope**:
   - `0003_...`: `alembic revision --autogenerate` contra una base con el esquema del TP aplicado;
     **leerla entera antes de aplicarla** y corregir a mano lo que la comparación no infiere bien (tipos,
@@ -322,7 +323,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-05] errores-paginacion-contratos
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — archivado como `2026-11-05-c-05-errores-paginacion-contratos`. Entrega `app/core/errors.py` (traducción de `IntegrityError` por constraint, handler de `RequestValidationError`, `SinNulMixin`, validador de 72 bytes), handler registrado en `main.py`, `paginar()` conectado en todos los listados, base de schemas `Create/Update/Read` con `extra="forbid"` en 29 ocurrencias y sin `password_hash`. Verificado: 422 para id no entero/JSON malformado/NUL/extra/73 bytes; paginación con mensaje propio y cero resultados; unicidades/FKs/CHECKs traducidos a 409/422; `alembic check` limpio; sin `create_all`.
 - **Scope**:
   - Traducción del `IntegrityError` por **nombre de constraint** a 409/422 con mensaje propio en español,
     en segunda persona y sin jerga de base (`RD-03`); el texto de PostgreSQL **nunca** sale al cliente
@@ -976,21 +977,21 @@ caro pero donde el trabajo es más acotado.
 **Gates de paralelismo**: 10 (`GATE 0`…`GATE 9`), con dos forks grandes: `GATE 0` abre la vía de
 despliegue y `GATE 4` abre catálogo, ventas y cambio de contraseña a la vez.
 
-**Primer change recomendado**: `C-01` (baseline-tp-y-fundacion) — **ya propuesto**, en curso.
+**Primer change recomendado**: `C-02` (core-repositorios-uow-paginacion) — **pendiente de proponer**. `C-01`
+ya está cerrado y archivado.
 
 Estado de `C-01`:
 
-- Mitad **(A)** — grupos 1 a 6 de `tasks.md`: **implementada y verificada** en `parcial/`
-  (`Settings` fail-fast, motor y sesión en el `lifespan`, `/health/live` y `/health/ready`, Alembic sin
-  credenciales, `env.example`, estructura de paquetes).
-- Mitad **(B)** — grupo 7: **BLOQUEADA** por el TP cap. 1-4. Qué falta y qué tiene que hacer quien lo
-  tenga: [`docs/HANDOFF_BASELINE_TP_CAP1a4.md`](docs/HANDOFF_BASELINE_TP_CAP1a4.md).
+- **Cerrado y archivado** (`openspec/changes/archive/2026-11-05-c-01-baseline-tp-y-fundacion/`).
+- Mitad **(A)** — grupos 1 a 6: implementada y verificada en `parcial/`.
+- Mitad **(B)** — grupo 7: cerrada. El TP cap. 1-4 se implementó desde la consigna
+  (`docs/TP_Cap1a4_Consigna (1).pdf`), se adoptó en `parcial/`, se copió intacto a `despliegue/`, las
+  migraciones `0001`/`0002` se aplicaron y el baseline quedó documentado en
+  `docs/BASELINE_TP_CAP1a4.md` (`SU-01`…`SU-09`).
+- Columnas heredadas cerradas: `SU-01` (bigint identity), `SU-07` (sin `usuario_id`, `cliente_id` con
+  `ON DELETE NO ACTION`), `SU-08` (`precio_unitario`), `SU-09` (revisiones y archivos).
 
-Para continuar: `/opsx:apply c-01-baseline-tp-y-fundacion` — y pedir el grupo 7 cuando el material esté.
-
-> **Antes de cerrar `C-01`**: conseguir el `.zip` o el repositorio del TP cap. 1-4 **tal como se entregó**.
-> De ahí salen `parcial/` y `despliegue/` y se cierran las columnas heredadas (`SU-01`, `SU-07`, `SU-08`,
-> `SU-09`). Sin ese material, `C-01` no se puede cerrar y `C-20` arranca a ciegas.
+Para continuar: `/opsx:propose c-02-core-repositorios-uow-paginacion` y luego `/opsx:apply`.
 
 
 

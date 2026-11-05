@@ -1,0 +1,52 @@
+### C-01 parámetro de ruta no entero -> 422
+GET http://127.0.0.1:8000/libros/abc
+
+### C-02 ISBN repetido -> 409
+POST http://127.0.0.1:8000/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0001-1",
+  "titulo": "Duplicado",
+  "precio": "10000.00",
+  "stock": 1,
+  "editorial_id": 1,
+  "autores": []
+}
+
+### C-03 segundo perfil mismo cliente -> 409
+POST http://127.0.0.1:8000/clientes/1/perfil
+Content-Type: application/json
+
+{ "telefono": "222" }
+
+### C-04 libro con editorial inexistente -> 409
+POST http://127.0.0.1:8000/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-999-00-0009-9",
+  "titulo": "X",
+  "precio": "10000.00",
+  "stock": 1,
+  "editorial_id": 999,
+  "autores": []
+}
+
+### C-05 venta con cliente inexistente -> 409
+POST http://127.0.0.1:8000/ventas/
+Content-Type: application/json
+
+{ "cliente_id": 999, "renglones": [ { "libro_id": 1, "cantidad": 1 } ] }
+
+### C-06 venta válida con dos renglones -> 201
+POST http://127.0.0.1:8000/ventas/
+Content-Type: application/json
+
+{ "cliente_id": 2, "renglones": [ { "libro_id": 1, "cantidad": 2 }, { "libro_id": 4, "cantidad": 1 } ] }
+
+### C-07 detalle de libro -> consultas fijas
+GET http://127.0.0.1:8000/libros/1
+
+### C-08 búsqueda inyección -> 200 lista vacía
+GET http://127.0.0.1:8000/libros?titulo=%27%20OR%20%271%27%3D%271

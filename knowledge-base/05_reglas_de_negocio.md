@@ -220,7 +220,30 @@ libro y la búsqueda por título con parámetros ligados».
 |---|---|
 | `CHECK (libro.precio > 0)` | Vigente |
 | `CHECK (libro.stock >= 0)` | Vigente (el `CHECK` impide el stock negativo; **no** impide la actualización perdida) |
+| `UNIQUE (perfil_cliente.cliente_id)` | Vigente: un cliente tiene a lo sumo un perfil (consigna RN-09) |
 | Búsqueda de libros por título con **parámetros ligados**, sin distinguir mayúsculas | Vigente; `' OR '1'='1` no debe romper ni devolver todo |
+
+## Reglas del TP cap 1-4 (numeración original de la consigna)
+
+> La consigna de los capítulos 1 a 4 numera sus propias reglas `RN-01…RN-12`. El parcial las
+> **renumeró** («las reglas de esta tabla se numeran de nuevo y reemplazan a las del TP en lo que se
+> superponen»), por eso los números ya no coinciden. Esta tabla conserva la **numeración original del TP**
+> para que se pueda cotejar contra el PDF, y dice **dónde vive hoy** cada regla en este documento.
+
+| TP RN | Enunciado (consigna) | Garante esperado | Dónde vive hoy |
+|---|---|---|---|
+| RN-01 (TP) | El ISBN de un libro es único. | `UNIQUE` en la base; 409 | Parcial `RN-01` (ampliada: único entre los vigentes) |
+| RN-02 (TP) | El email de un cliente es único. | `UNIQUE` en la base; 409 | Parcial `RN-01` (cliente.email) |
+| RN-03 (TP) | El precio de un libro es mayor que cero y el stock nunca es negativo. | `CHECK` en la base y validación del DTO | «Reglas del TP que siguen vigentes» (CHECKs) |
+| RN-04 (TP) | Una venta se crea con sus renglones: los datos de cada renglón viajan dentro del cuerpo del alta de la venta, y no existe un alta de renglones por separado. | DTO anidado; los renglones se agregan a `venta.renglones` | Parcial `RN-09` |
+| RN-05 (TP) | Una venta tiene al menos un renglón, y un mismo libro no aparece en dos renglones. | Validación del DTO; 422 | Parcial `RN-09` |
+| RN-06 (TP) | El precio de cada renglón se copia del libro al registrar la venta y no cambia aunque después cambie el precio del libro. | El servidor lo lee de la base; nunca viaja en el DTO | Parcial `RN-09` |
+| RN-07 (TP) | El total de la venta lo calcula el servidor como suma de cantidad por precio unitario. | No viaja en el DTO | Parcial `RN-09` |
+| RN-08 (TP) | Las ventas no se modifican: registran un hecho. | No hay `PATCH` de ventas | Parcial `RN-09` / `RN-11` (DD-11) |
+| RN-09 (TP) | Un cliente tiene como máximo un perfil. | `UNIQUE` en `perfil_cliente.cliente_id`; 409 | Esquema (`perfil_cliente.cliente_id` UNIQUE); «Reglas del TP que siguen vigentes» |
+| RN-10 (TP) | Todo listado se pagina con `limit` (de 1 a 100, por defecto 20) y `offset` (desde 0). | Restricciones en `Query`; 422 | `02_descripcion_general.md` (envoltorio) y DD-18 (renumerado a `page`/`size`) |
+| RN-11 (TP) | El listado de libros se puede filtrar por parte del título, sin distinguir mayúsculas. | Parámetro ligado, nunca SQL armado con texto | `02_descripcion_general.md` y «Reglas del TP que siguen vigentes» |
+| RN-12 (TP) | Ningún error devuelve al cliente texto interno de la base (nombres de tablas, restricciones o trazas). | Traducción del `IntegrityError` a un mensaje propio | Parcial `RN-15` |
 
 ## Convenciones de ingeniería (`CV`) — **no son reglas de la consigna**
 
