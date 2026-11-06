@@ -1,23 +1,28 @@
 from typing import Optional
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_session
 from app.core.paginacion import Pagina
 from app.modules.libros import service
-from app.modules.libros.schemas import LibroCreate, LibroDetailRead, LibroRead, LibroUpdate
+from app.modules.libros.schemas import (
+    LibroCreate,
+    LibroDetailRead,
+    LibroRead,
+    LibroUpdate,
+    MovimientoStockRead,
+    ReponerCreate,
+)
+from app.modules.libros.unit_of_work import LibrosUnitOfWork, get_libros_uow
 
 router = APIRouter(prefix="/libros", tags=["libros"])
 
 
 @router.post("/", response_model=LibroDetailRead, status_code=201)
-async def crear_libro(data: LibroCreate, session: AsyncSession = Depends(get_session)):
-    libro = await service.crear(session, data)
-    await session.commit()
-    libro = await service.obtener(session, libro.id)
+async def crear_libro(
+    data: LibroCreate, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+):
+    libro = await service.crear(uow, data)
+    libro = await service.obtener(uow, libro.id)
     return await service.to_detail_read(libro)
 
 
@@ -27,24 +32,60 @@ async def listar_libros(
     size: int = Query(20, ge=1, le=100),
     titulo: Optional[str] = Query(None),
     genero_id: Optional[int] = Query(None),
-    session: AsyncSession = Depends(get_session),
+    uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
-    pagina = await service.listar(session, page, size, titulo, genero_id)
+    pagina = await service.listar(uow, page, size, titulo, genero_id)
     items = [await service.to_read(l) for l in pagina.items]
-    return Pagina(items=items, total=pagina.total, page=pagina.page, size=pagina.size, pages=pagina.pages)
+    return Pagina(
+        items=items,
+        total=pagina.total,
+        page=pagina.page,
+        size=pagina.size,
+        pages=pagina.pages,
+    )
 
 
 @router.get("/{libro_id}", response_model=LibroDetailRead)
-async def obtener_libro(libro_id: int, session: AsyncSession = Depends(get_session)):
-    libro = await service.obtener(session, libro_id)
+async def obtener_libro(
+    libro_id: int, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+):
+    libro = await service.obtener(uow, libro_id)
     return await service.to_detail_read(libro)
 
 
 @router.patch("/{libro_id}", response_model=LibroDetailRead)
 async def actualizar_libro(
-    libro_id: int, data: LibroUpdate, session: AsyncSession = Depends(get_session)
+    libro_id: int,
+    data: LibroUpdate,
+    uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
-    libro = await service.actualizar(session, libro_id, data)
-    await session.commit()
-    libro = await service.obtener(session, libro.id)
+    libro = await service.actualizar(uow, libro_id, data)
+    libro = await service.obtener(uow, libro.id)
     return await service.to_detail_read(libro)
+
+
+@router.delete("/{libro_id}", status_code=204)
+async def dar_de_baja_libro(
+    libro_id: int, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+):
+    await service.dar_de_baja(uow, libro_id)
+    return None
+
+
+@router.post("/{libro_id}/reponer", response_model=LibroDetailRead)
+async def reponer_libro(
+    libro_id: int,
+    data: ReponerCreate,
+    uow: LibrosUnitOfWork = Depends(get_libros_uow),
+):
+    libro = await service.reponer(uow, libro_id, data.cantidad)
+    libro = await service.obtener(uow, libro.id)
+    return await service.to_detail_read(libro)
+
+
+@router.get("/{libro_id}/movimientos", response_model=list[MovimientoStockRead])
+async def movimientos_libro(
+    libro_id: int, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+):
+    items = await service.movimientos(uow, libro_id)
+    return items

@@ -1,9 +1,8 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, Query
 
-from app.core.database import get_session
+from app.core.paginacion import Pagina
 from app.modules.clientes import service
 from app.modules.clientes.schemas import (
     ClienteCreate,
@@ -13,26 +12,27 @@ from app.modules.clientes.schemas import (
     PerfilCreate,
     PerfilRead,
 )
+from app.modules.clientes.unit_of_work import ClientesUnitOfWork, get_clientes_uow
 from app.modules.ventas.schemas import ClienteRef, VentaRead
-from app.modules.ventas import service as ventas_service
 
 router = APIRouter(prefix="/clientes", tags=["clientes"])
 
 
-@router.post("/", response_model=ClienteRead, status_code=201)
-async def crear_cliente(data: ClienteCreate, session: AsyncSession = Depends(get_session)):
-    obj = await service.crear(session, data.nombre, data.email)
-    await session.commit()
-    return obj
+def _to_cliente_read(obj) -> ClienteRead:
+    return ClienteRead(
+        id=obj.id,
+        nombre=obj.nombre,
+        email=obj.email,
+        usuario_id=obj.usuario_id,
+    )
 
 
-@router.get("/{cliente_id}", response_model=ClienteDetailRead)
-async def obtener_cliente(cliente_id: int, session: AsyncSession = Depends(get_session)):
-    obj = await service.obtener(session, cliente_id)
+def _to_detail(obj) -> ClienteDetailRead:
     return ClienteDetailRead(
         id=obj.id,
         nombre=obj.nombre,
         email=obj.email,
+        usuario_id=obj.usuario_id,
         perfil=(
             PerfilRead(
                 id=obj.perfil.id,
@@ -40,59 +40,75 @@ async def obtener_cliente(cliente_id: int, session: AsyncSession = Depends(get_s
                 telefono=obj.perfil.telefono,
                 direccion=obj.perfil.direccion,
             )
-            if obj.perfil is not None
+            if getattr(obj, "perfil", None) is not None
             else None
         ),
     )
+
+
+@router.post("/", response_model=ClienteRead, status_code=201)
+async def crear_cliente(
+    data: ClienteCreate, uow: ClientesUnitOfWork = Depends(get_clientes_uow)
+):
+    obj = await service.crear(uow, data)
+    return _to_cliente_read(obj)
+
+
+@router.get("/{cliente_id}", response_model=ClienteDetailRead)
+async def obtener_cliente(
+    cliente_id: int, uow: ClientesUnitOfWork = Depends(get_clientes_uow)
+):
+    obj = await service.obtener(uow, cliente_id)
+    return _to_detail(obj)
 
 
 @router.patch("/{cliente_id}", response_model=ClienteDetailRead)
 async def actualizar_cliente(
-    cliente_id: int, data: ClienteUpdate, session: AsyncSession = Depends(get_session)
+    cliente_id: int,
+    data: ClienteUpdate,
+    uow: ClientesUnitOfWork = Depends(get_clientes_uow),
 ):
-    obj = await service.actualizar(session, cliente_id, data)
-    await session.commit()
-    obj = await service.obtener(session, obj.id)
-    return ClienteDetailRead(
-        id=obj.id,
-        nombre=obj.nombre,
-        email=obj.email,
-        perfil=(
-            PerfilRead(
-                id=obj.perfil.id,
-                cliente_id=obj.perfil.cliente_id,
-                telefono=obj.perfil.telefono,
-                direccion=obj.perfil.direccion,
-            )
-            if obj.perfil is not None
-            else None
-        ),
-    )
+    obj = await service.actualizar(uow, cliente_id, data)
+    return _to_detail(obj)
 
 
 @router.post("/{cliente_id}/perfil", response_model=PerfilRead, status_code=201)
 async def crear_perfil(
-    cliente_id: int, data: PerfilCreate, session: AsyncSession = Depends(get_session)
+    cliente_id: int, data: PerfilCreate, uow: ClientesUnitOfWork = Depends(get_clientes_uow)
 ):
-    obj = await service.crear_perfil(session, cliente_id, data.telefono, data.direccion)
-    await session.commit()
-    return obj
+    obj = await service.crear_perfil(uow, cliente_id, data)
+    return PerfilRead(
+        id=obj.id,
+        cliente_id=obj.cliente_id,
+        telefono=obj.telefono,
+        direccion=obj.direccion,
+    )
 
 
-@router.get("/{cliente_id}/ventas", response_model=list[VentaRead])
-async def ventas_de_cliente(cliente_id: int, session: AsyncSession = Depends(get_session)):
-    ventas = await ventas_service.ventas_de_cliente(session, cliente_id)
-    # attach cliente ref
-    cliente = await service.obtener(session, cliente_id)
-    result = []
-    for v in ventas:
-        result.append(
-            VentaRead(
-                id=v.id,
-                cliente_id=v.cliente_id,
-                fecha=v.fecha,
-                total=v.total,
-                cliente=ClienteRef(id=cliente.id, nombre=cliente.nombre, email=cliente.email),
-            )
+@router.get("/{cliente_id}/ventas", response_model=Pagina[VentaRead])
+async def ventas_de_cliente(
+    cliente_id: int,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    uow: ClientesUnitOfWork = Depends(get_clientes_uow),
+):
+    cliente, pagina = await service.ventas_de(uow, cliente_id, page, size)
+    items = [
+        VentaRead(
+            id=v.id,
+            cliente_id=v.cliente_id,
+            fecha=v.fecha,
+            total=v.total,
+            cliente=ClienteRef(
+                id=cliente.id, nombre=cliente.nombre, email=cliente.email
+            ),
         )
-    return result
+        for v in pagina.items
+    ]
+    return Pagina(
+        items=items,
+        total=pagina.total,
+        page=pagina.page,
+        size=pagina.size,
+        pages=pagina.pages,
+    )

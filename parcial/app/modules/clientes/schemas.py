@@ -36,6 +36,7 @@ class ClienteRead(BaseModel, SinNulMixin):
     id: int
     nombre: str
     email: str
+    usuario_id: Optional[int] = None
 
 
 class ClienteDetailRead(ClienteRead):

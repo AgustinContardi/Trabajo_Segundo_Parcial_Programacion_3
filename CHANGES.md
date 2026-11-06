@@ -393,7 +393,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-07] capas-clientes-y-perfil
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado - archivado como `2026-11-06-c-07-capas-clientes-y-perfil`. Modulo `clientes` a seis capas (ClienteRepository con precarga de perfil/usuario, ClientesUnitOfWork, service sin AsyncSession, router que construye el UoW), POST/GET/PATCH cliente, POST perfil, GET /clientes/{id}/ventas paginado con punto de decision 403 para CLIENTE. Verificado: py_compile OK, import main OK, grep invariants vacios, runtime end-to-end contra PostgreSQL.
 - **Scope**:
   - Módulo `clientes` con sus seis capas; `ClienteRepository` con precarga de `perfil` y de `usuario`
     declarada en el método que la necesita.
@@ -422,7 +422,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-08] capas-libros-alta-stock-inicial
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado - archivado como `2026-11-06-c-08-capas-libros-alta-stock-inicial`. Modulo `libros` a seis capas con LibroRepository(SoftDeleteRepository), punto unico de escritura de stock (`aplicar_movimiento`), alta con `stock_inicial` + autores + movimiento 'Stock inicial', PATCH solo titulo/precio, listados paginados con filtro titulo/genero y busqueda con parametro ligado. Verificado: py_compile OK, import main OK, grep invariants vacios, smoke test 201 + invariante stock.
 - **Scope**:
   - Módulo `libros` con sus seis capas; `LibroRepository(SoftDeleteRepository[Libro])` que filtra los
     dados de baja y precarga editorial, género y autores.
@@ -455,7 +455,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-09] libros-baja-reposicion-movimientos
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado - archivado como `2026-11-06-c-09-libros-baja-reposicion-movimientos`. Baja logica (DELETE 204 + borrado_en), reposicion (POST 200 + movimiento 'Reposicion'), GET /libros/{id}/movimientos, re-alta por ISBN dado de baja (201) y segundo vigente (409) via indice parcial. Verificado: py_compile OK, import main OK, grep invariants vacios, smoke test 204/200/409/201.
 - **Scope**:
   - `DELETE /libros/{id}` → **204** y escribe `borrado_en = now()` (baja lógica); el libro desaparece de
     **todos** los listados y del detalle público; repetir la baja o un id inexistente → **404**.
@@ -484,7 +484,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-10] capas-ventas-lecturas
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado - archivado como `2026-11-06-c-10-capas-ventas-lecturas`. Modulo `ventas` a seis capas con VentaRepository con precarga fija (incluye borrados), GET /ventas/{id} sin requiere_rol, GET /mis-ventas solo sesion, sin PATCH, precarga solo en repository.py. Verificado: py_compile OK, import main OK, grep invariants vacios, runtime end-to-end.
 - **Scope**:
   - Módulo `ventas` con sus seis capas; `VentaRepository` con la precarga de cliente, renglones y el
     libro de cada renglón —**incluidos los dados de baja**— declarada adentro del método que la necesita

@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
@@ -42,7 +43,7 @@ class LibroCreate(BaseModel, SinNulMixin):
     isbn: str
     titulo: str
     precio: Decimal = Field(gt=0)
-    stock: int = Field(ge=0)
+    stock_inicial: int = Field(ge=0)
     editorial_id: int
     genero_id: Optional[int] = None
     autores: List[LibroAutorCreate] = Field(default_factory=list)
@@ -69,3 +70,20 @@ class LibroRead(BaseModel, SinNulMixin):
 
 class LibroDetailRead(LibroRead):
     autores: List[LibroAutorRead] = Field(default_factory=list)
+
+
+# --- reposición y movimientos de stock ---
+class ReponerCreate(BaseModel, SinNulMixin):
+    model_config = ConfigDict(extra="forbid")
+    cantidad: int = Field(gt=0)
+
+
+class MovimientoStockRead(BaseModel, SinNulMixin):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    id: int
+    libro_id: int
+    venta_id: Optional[int] = None
+    usuario_id: int
+    cantidad: int
+    motivo: str
+    cuando: datetime

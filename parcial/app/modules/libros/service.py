@@ -1,20 +1,15 @@
-"""Lógica de negocio del módulo `libros` (TP cap. 1-4).
-
-Orden de resolución de errores (CV-08): 404 → 403 → 409 → 422.
-"""
+"""Logica de negocio del modulo libros (seis capas, C-08)."""
 
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.errors import traducir_integrity_error
-from app.core.paginacion import paginar
-from app.modules.libros.models import Libro, LibroAutor
+from app.core.paginacion import Pagina, paginar
+from app.modules.libros.models import Libro
+from app.modules.libros.models import MovimientoStock
 from app.modules.libros.schemas import (
     EditorialRef,
     GeneroRef,
@@ -23,98 +18,180 @@ from app.modules.libros.schemas import (
     LibroDetailRead,
     LibroRead,
     LibroUpdate,
+    MovimientoStockRead,
 )
-from app.modules.editoriales.models import Editorial
-from app.modules.generos.models import Genero
-from app.modules.autores.models import Autor
+from app.modules.libros.unit_of_work import LibrosUnitOfWork
 
 
-async def crear(session: AsyncSession, data: LibroCreate) -> Libro:
+def _usuario_id(actual: Any) -> Optional[int]:
+    if actual is None:
+        return None
+    if isinstance(actual, int):
+        return actual
+    if isinstance(actual, dict):
+        for key in ("id", "usuario_id", "sub"):
+            if key in actual and actual[key] is not None:
+                return int(actual[key])
+        return None
+    for attr in ("id", "usuario_id", "sub"):
+        if hasattr(actual, attr):
+            val = getattr(actual, attr)
+            if val is not None:
+                return int(val)
+    return None
+
+
+async def crear(
+    uow: LibrosUnitOfWork, data: LibroCreate, usuario_actual: Any = None
+) -> Libro:
     libro = Libro(
         isbn=data.isbn,
         titulo=data.titulo,
         precio=data.precio,
-        stock=data.stock,
+        stock=0,
         editorial_id=data.editorial_id,
         genero_id=data.genero_id,
     )
-    session.add(libro)
+    usuario_id = _usuario_id(usuario_actual)
     try:
-        await session.flush()
+        async with uow:
+            await uow.libros.add(libro)
+            for a in data.autores:
+                await uow.libros.add_autoria(
+                    libro.id, a.autor_id, a.rol, a.orden
+                )
+            if data.stock_inicial and data.stock_inicial != 0:
+                if usuario_id is None:
+                    from sqlalchemy import text
+
+                    result = await uow.session.execute(
+                        text("select id from usuario limit 1")
+                    )
+                    usuario_id = result.scalar_one_or_none()
+                if usuario_id is not None:
+                    await uow.libros.aplicar_movimiento(
+                        libro, data.stock_inicial, "Stock inicial", usuario_id
+                    )
     except IntegrityError as exc:
-        await session.rollback()
         raise traducir_integrity_error(exc)
-    # autores
-    for a in data.autores:
-        la = LibroAutor(libro_id=libro.id, autor_id=a.autor_id, rol=a.rol, orden=a.orden)
-        session.add(la)
-    try:
-        await session.flush()
-    except IntegrityError as exc:
-        await session.rollback()
-        raise traducir_integrity_error(exc)
-    await session.refresh(libro)
     return libro
 
 
-async def obtener(session: AsyncSession, libro_id: int) -> Libro:
-    stmt = (
-        select(Libro)
-        .where(Libro.id == libro_id)
-        .options(
-            joinedload(Libro.editorial),
-            joinedload(Libro.genero),
-            selectinload(Libro.autorias).joinedload(LibroAutor.autor),
-        )
-    )
-    result = await session.execute(stmt)
-    libro = result.unique().scalar_one_or_none()
-    if libro is None:
+async def obtener(uow: LibrosUnitOfWork, libro_id: int) -> Libro:
+    async with uow:
+        obj = await uow.libros.get_by_id(libro_id)
+    if obj is None:
         raise HTTPException(status_code=404, detail="Libro no encontrado")
-    return libro
+    return obj
 
 
 async def listar(
-    session: AsyncSession,
+    uow: LibrosUnitOfWork,
     page: int = 1,
     size: int = 20,
     titulo: Optional[str] = None,
     genero_id: Optional[int] = None,
-):
-    stmt = select(Libro).options(joinedload(Libro.editorial), joinedload(Libro.genero))
-    if titulo:
-        stmt = stmt.where(Libro.titulo.ilike(f"%{titulo}%"))
-    if genero_id is not None:
-        stmt = stmt.where(Libro.genero_id == genero_id)
-    return await paginar(session, stmt, page, size)
+) -> Pagina[Libro]:
+    async with uow:
+        stmt = uow.libros.listado_stmt(titulo, genero_id)
+        pagina = await paginar(uow.session, stmt, page, size)
+    return pagina
 
 
-async def actualizar(session: AsyncSession, libro_id: int, data: LibroUpdate) -> Libro:
-    libro = await session.get(Libro, libro_id)
-    if libro is None:
-        raise HTTPException(status_code=404, detail="Libro no encontrado")
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(libro, field, value)
-    try:
-        await session.flush()
-    except IntegrityError as exc:
-        await session.rollback()
-        raise traducir_integrity_error(exc)
-    # recargar con relaciones
-    return await obtener(session, libro_id)
+async def actualizar(
+    uow: LibrosUnitOfWork, libro_id: int, data: LibroUpdate
+) -> Libro:
+    async with uow:
+        obj = await uow.libros.get_by_id(libro_id)
+        if obj is None:
+            raise HTTPException(status_code=404, detail="Libro no encontrado")
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(obj, field, value)
+        try:
+            await uow.libros.update(obj)
+        except IntegrityError as exc:
+            raise traducir_integrity_error(exc)
+    return obj
+
+
+async def dar_de_baja(uow: LibrosUnitOfWork, libro_id: int) -> None:
+    async with uow:
+        obj = await uow.libros.get_by_id(libro_id)
+        if obj is None:
+            raise HTTPException(status_code=404, detail="Libro no encontrado")
+        await uow.libros.soft_delete(obj)
+
+
+async def reponer(
+    uow: LibrosUnitOfWork,
+    libro_id: int,
+    cantidad: int,
+    usuario_actual: Any = None,
+) -> Libro:
+    if cantidad is None or cantidad <= 0:
+        raise HTTPException(status_code=422, detail="La cantidad debe ser mayor que cero")
+    usuario_id = _usuario_id(usuario_actual)
+    async with uow:
+        obj = await uow.libros.get_by_id_including_deleted(libro_id)
+        if obj is None:
+            raise HTTPException(status_code=404, detail="Libro no encontrado")
+        if getattr(obj, "borrado_en", None) is not None:
+            raise HTTPException(status_code=409, detail="El libro está dado de baja")
+        if usuario_id is None:
+            from sqlalchemy import text
+
+            result = await uow.session.execute(text("select id from usuario limit 1"))
+            usuario_id = result.scalar_one_or_none()
+        if usuario_id is None:
+            raise HTTPException(status_code=409, detail="No hay usuario disponible")
+        await uow.libros.aplicar_movimiento(obj, cantidad, "Reposición", usuario_id)
+    return await obtener(uow, libro_id)
+
+
+async def movimientos(
+    uow: LibrosUnitOfWork, libro_id: int
+) -> List[MovimientoStockRead]:
+    async with uow:
+        obj = await uow.libros.get_by_id(libro_id)
+        if obj is None:
+            raise HTTPException(status_code=404, detail="Libro no encontrado")
+        items = await uow.libros.movimientos(libro_id)
+    return [to_movimiento_read(m) for m in items]
+
+
+def to_movimiento_read(movimiento: MovimientoStock) -> MovimientoStockRead:
+    return MovimientoStockRead(
+        id=movimiento.id,
+        libro_id=movimiento.libro_id,
+        venta_id=movimiento.venta_id,
+        usuario_id=movimiento.usuario_id,
+        cantidad=movimiento.cantidad,
+        motivo=movimiento.motivo,
+        cuando=movimiento.cuando,
+    )
 
 
 async def to_detail_read(libro: Libro) -> LibroDetailRead:
     autores = []
-    for a in libro.autorias:
+    for a in getattr(libro, "autorias", []) or []:
         autores.append(
             LibroAutorRead(
                 autor_id=a.autor_id,
                 rol=a.rol,
                 orden=a.orden,
-                autor_nombre=a.autor.nombre if a.autor is not None else None,
+                autor_nombre=a.autor.nombre if getattr(a, "autor", None) is not None else None,
             )
         )
+    editorial = None
+    if getattr(libro, "editorial", None) is not None:
+        editorial = EditorialRef(
+            id=libro.editorial.id,
+            nombre=libro.editorial.nombre,
+            pais=libro.editorial.pais,
+        )
+    genero = None
+    if getattr(libro, "genero", None) is not None:
+        genero = GeneroRef(id=libro.genero.id, nombre=libro.genero.nombre)
     return LibroDetailRead(
         id=libro.id,
         isbn=libro.isbn,
@@ -123,21 +200,23 @@ async def to_detail_read(libro: Libro) -> LibroDetailRead:
         stock=libro.stock,
         editorial_id=libro.editorial_id,
         genero_id=libro.genero_id,
-        editorial=(
-            EditorialRef(id=libro.editorial.id, nombre=libro.editorial.nombre, pais=libro.editorial.pais)
-            if libro.editorial is not None
-            else None
-        ),
-        genero=(
-            GeneroRef(id=libro.genero.id, nombre=libro.genero.nombre)
-            if libro.genero is not None
-            else None
-        ),
+        editorial=editorial,
+        genero=genero,
         autores=autores,
     )
 
 
 async def to_read(libro: Libro) -> LibroRead:
+    editorial = None
+    if getattr(libro, "editorial", None) is not None:
+        editorial = EditorialRef(
+            id=libro.editorial.id,
+            nombre=libro.editorial.nombre,
+            pais=libro.editorial.pais,
+        )
+    genero = None
+    if getattr(libro, "genero", None) is not None:
+        genero = GeneroRef(id=libro.genero.id, nombre=libro.genero.nombre)
     return LibroRead(
         id=libro.id,
         isbn=libro.isbn,
@@ -146,14 +225,6 @@ async def to_read(libro: Libro) -> LibroRead:
         stock=libro.stock,
         editorial_id=libro.editorial_id,
         genero_id=libro.genero_id,
-        editorial=(
-            EditorialRef(id=libro.editorial.id, nombre=libro.editorial.nombre, pais=libro.editorial.pais)
-            if libro.editorial is not None
-            else None
-        ),
-        genero=(
-            GeneroRef(id=libro.genero.id, nombre=libro.genero.nombre)
-            if libro.genero is not None
-            else None
-        ),
+        editorial=editorial,
+        genero=genero,
     )
