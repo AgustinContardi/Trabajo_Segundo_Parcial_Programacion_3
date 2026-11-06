@@ -1,0 +1,140 @@
+# C-12 — Auto-registro atómico de clientes (caso C-02 de docs/CHECKLIST_ENTREGA.md §10)
+#
+# Requisitos:
+#   - API en http://127.0.0.1:8000 con PostgreSQL real y esquema al día.
+#   - Ningún usuario/cliente previo con los emails de este archivo.
+#   - Cambiar `@sufijo` en cada corrida: las peticiones que responden 201 crean
+#     filas reales y, al repetir el mismo email, la segunda corrida daría 409.
+#
+# Qué demuestra:
+#   - 201 con exactamente `id`, `email`, `nombre`, `activo`, `debe_cambiar_password`
+#     (sin `password_hash` y sin `Set-Cookie`).
+#   - 409 propio cuando el email ya existe como usuario.
+#   - 409 propio cuando el email ya existe como cliente, sin apropiarse de la ficha.
+#   - 422 con `rol`, con 73 bytes y con 40 «ñ» (80 bytes), sin escribir filas.
+#   - 201 con una contraseña de exactamente 72 bytes.
+#
+# Las consultas SQL de control se ejecutan en psql y se comparan antes/después.
+# Antes de la primera petición:
+#   SELECT count(*) FROM usuario;          -- u0
+#   SELECT count(*) FROM asignacion_rol;   -- a0
+#   SELECT count(*) FROM cliente;          -- c0
+
+@host = http://127.0.0.1:8000
+@sufijo = 2026-11-06-01
+@email_alta = c02-alta-{{sufijo}}@example.com
+@email_72 = c02-72bytes-{{sufijo}}@example.com
+@email_ficha = c02-ficha-{{sufijo}}@example.com
+@password = clave-segura-123
+
+### C-02.1 · alta válida -> 201
+# Esperado: {"id":<nuevo>,"email":"c02-alta-...@example.com","nombre":"Ana Pérez",
+#            "activo":true,"debe_cambiar_password":false}
+# No aparece `password_hash` ni la contraseña en claro.
+# Sin `Set-Cookie`: el registro no inicia sesión.
+# Después:
+#   SELECT u.email, a.rol, a.vence_en, a.revocada_en, c.usuario_id = u.id
+#   FROM usuario u
+#   JOIN asignacion_rol a ON a.usuario_id = u.id
+#   JOIN cliente c ON c.usuario_id = u.id
+#   WHERE u.email = 'c02-alta-2026-11-06-01@example.com';
+#   -- 1 fila, rol CLIENTE, vence_en y revocada_en NULL, usuario_id ligado
+#   SELECT count(*) FROM usuario;        -- u0 + 1
+#   SELECT count(*) FROM asignacion_rol; -- a0 + 1
+#   SELECT count(*) FROM cliente;        -- c0 + 1
+POST {{host}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "{{email_alta}}",
+  "nombre": "Ana Pérez",
+  "password": "{{password}}"
+}
+
+### C-02.2 · el mismo email ya existe como usuario -> 409
+# Esperado: {"detail":"Ya existe un usuario con ese email"}
+# El cuerpo no menciona `uq_usuario_email` ni "duplicate key".
+# Después: los tres count(*) siguen en u0+1 / a0+1 / c0+1 (no hay filas nuevas).
+POST {{host}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "{{email_alta}}",
+  "nombre": "Otra Persona",
+  "password": "{{password}}"
+}
+
+### C-02.3 · preparar una ficha de cliente SIN usuario_id -> luego 409
+# Ejecutar una sola vez en psql (y borrarla al final):
+#   INSERT INTO cliente (nombre, email)
+#   VALUES ('Ficha ajena', 'c02-ficha-2026-11-06-01@example.com');
+#
+# Esperado del POST: {"detail":"Ya existe un cliente con ese email"}
+# Después:
+#   SELECT nombre, email, usuario_id FROM cliente
+#   WHERE email = 'c02-ficha-2026-11-06-01@example.com';
+#   -- sigue con nombre 'Ficha ajena' y usuario_id NULL
+#   SELECT count(*) FROM usuario;          -- u0 + 1 (no creció)
+#   SELECT count(*) FROM asignacion_rol;   -- a0 + 1 (no creció)
+#   SELECT count(*) FROM cliente;          -- c0 + 2 (sólo la ficha sembrada)
+POST {{host}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "{{email_ficha}}",
+  "nombre": "Ana Pérez",
+  "password": "{{password}}"
+}
+
+### C-02.4 · campo `rol` en el cuerpo -> 422 sin escribir filas
+# Esperado: 422 con `detail` de validación; `rol` es un campo extra prohibido.
+# Después: los tres count(*) no cambian.
+POST {{host}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "c02-rol-{{sufijo}}@example.com",
+  "nombre": "Ana Pérez",
+  "password": "{{password}}",
+  "rol": "ADMIN"
+}
+
+### C-02.5 · contraseña de 73 bytes -> 422 antes de bcrypt
+# Esperado: 422 con el mensaje de los 72 bytes; no se escribe ninguna fila.
+POST {{host}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "c02-73bytes-{{sufijo}}@example.com",
+  "nombre": "Ana Pérez",
+  "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+### C-02.6 · 40 «ñ» (80 bytes) -> 422 antes de bcrypt
+# Esperado: 422 con el mensaje de los 72 bytes; no se escribe ninguna fila.
+POST {{host}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "c02-enes-{{sufijo}}@example.com",
+  "nombre": "Ana Pérez",
+  "password": "ññññññññññññññññññññññññññññññññññññññññ"
+}
+
+### C-02.7 · contraseña de exactamente 72 bytes -> 201
+# Esperado: 201, igual que C-02.1 (72 bytes es el límite aceptado por bcrypt).
+# Después: los tres count(*) suben en 1.
+POST {{host}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "{{email_72}}",
+  "nombre": "Límite Setenta y Dos",
+  "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+### C-02.8 · limpieza al terminar (psql)
+#   DELETE FROM asignacion_rol WHERE usuario_id IN (
+#     SELECT id FROM usuario WHERE email LIKE 'c02-%@example.com');
+#   DELETE FROM cliente WHERE email LIKE 'c02-%@example.com';
+#   DELETE FROM usuario WHERE email LIKE 'c02-%@example.com';

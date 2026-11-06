@@ -1,4 +1,4 @@
-"""Router de autenticación (C-11): login y logout.
+"""Router de autenticación: registro (C-12), login y logout (C-11).
 
 El router sólo traduce HTTP: construye el UoW (CV-01), delega en el servicio y
 arma la cookie. No decide permisos por rol ni acepta el encabezado Bearer.
@@ -12,11 +12,14 @@ from app.modules.usuarios import service
 from app.modules.usuarios.schemas import (
     LoginRequest,
     LoginResponse,
+    UsuarioCreate,
     UsuarioRead,
     YoResponse,
 )
 from app.modules.usuarios.unit_of_work import (
+    RegistroUnitOfWork,
     UsuariosUnitOfWork,
+    get_registro_uow,
     get_usuarios_uow,
 )
 
@@ -57,6 +60,27 @@ async def login(
         debe_cambiar_password=resultado.usuario.debe_cambiar_password,
         expira_en_segundos=resultado.expira_en_segundos,
     )
+
+
+@router.post("/registro", response_model=UsuarioRead, status_code=201)
+async def registro(
+    data: UsuarioCreate,
+    request: Request,
+    uow: RegistroUnitOfWork = Depends(get_registro_uow),
+) -> UsuarioRead:
+    """Alta pública de un cliente: delega `RN-02` y proyecta la identidad.
+
+    El router sólo construye el UoW por dependencia, pasa la configuración del
+    `lifespan` y traduce la identidad a `UsuarioRead`; no hashea, no decide
+    unicidad, no abre transacciones ni emite cookie.
+    """
+    usuario = await service.registrar(
+        uow,
+        data,
+        settings=request.app.state.settings,
+        semaphore=request.app.state.bcrypt_sem,
+    )
+    return UsuarioRead.model_validate(usuario)
 
 
 @router.post("/logout")

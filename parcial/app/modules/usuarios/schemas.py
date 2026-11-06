@@ -5,11 +5,25 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.core.errors import SinNulMixin, validar_password_bytes
 
 
+def _normalizar_email(value: str) -> str:
+    """Convención única de email: sin espacios extremos y en minúsculas.
+
+    La comparten el alta (`UsuarioCreate`) y el login (`LoginRequest`) para que
+    el valor guardado y el buscado coincidan; no es una regla de negocio nueva.
+    """
+    return value.strip().lower()
+
+
 class UsuarioCreate(BaseModel, SinNulMixin):
     model_config = ConfigDict(extra="forbid")
     email: str
     nombre: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def _email_normalizado(cls, value: str) -> str:
+        return _normalizar_email(value)
 
     @field_validator("password")
     @classmethod
@@ -49,8 +63,8 @@ class LoginRequest(BaseModel, SinNulMixin):
 
     @field_validator("email")
     @classmethod
-    def _normalizar_email(cls, value: str) -> str:
-        return value.strip().lower()
+    def _email_normalizado(cls, value: str) -> str:
+        return _normalizar_email(value)
 
     @field_validator("password")
     @classmethod

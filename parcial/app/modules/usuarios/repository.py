@@ -1,8 +1,9 @@
-"""Repositorio del módulo `usuarios` — lectura para autenticación (C-11).
+"""Repositorio del módulo `usuarios`.
 
-Sólo `flush()` a través de `BaseRepository` (CV-02); ninguna consulta precarga
-fuera de este módulo (CV-03). Las ventanas de tiempo se calculan con el reloj
-de PostgreSQL (`now()`), no con el reloj del proceso.
+Lecturas de autenticación (C-11) y alta de la asignación de rol del
+auto-registro (C-12). Sólo `flush()` a través de `BaseRepository` (CV-02);
+ninguna consulta precarga fuera de este módulo (CV-03). Las ventanas de tiempo
+se calculan con el reloj de PostgreSQL (`now()`), no con el reloj del proceso.
 """
 
 from dataclasses import dataclass
@@ -54,6 +55,13 @@ class UsuarioRepository(BaseRepository[Usuario]):
         )
         result = await self._session.execute(stmt)
         return [str(rol) for rol in result.scalars().all()]
+
+
+class AsignacionRolRepository(BaseRepository[AsignacionRol]):
+    """Roles del usuario; el alta sólo usa `add()` heredado (`flush()`, CV-02)."""
+
+    def __init__(self, session: Any) -> None:
+        super().__init__(session, AsignacionRol)
 
 
 class IntentoAccesoRepository(BaseRepository[IntentoAcceso]):

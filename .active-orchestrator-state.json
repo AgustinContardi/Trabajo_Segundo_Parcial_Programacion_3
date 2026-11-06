@@ -297,9 +297,9 @@
   },
   "pending_inputs": {
     "chapter_docs_1_4": {
-      "status": "bloqueante activo",
-      "why": "C-01 necesita el baseline del TP cap 1-4 (catalogo, clientes, ventas) que no esta en el repo. La KB marca las columnas heredadas como \"(heredado TP cap 1-4 - confirmar contra el repo)\".",
-      "action": "Al recibir los documentos: ejecutar el grupo 7 (7.1-7.9) de openspec/changes/c-01-baseline-tp-y-fundacion/tasks.md, escribir docs/BASELINE_TP_CAP1a4.md y cerrar C-01. La mitad (A) ya esta implementada en parcial/.",
+      "status": "resuelto",
+      "resolution": "El usuario confirmo el 2026-11-06 que el TP cap 1-4 lo entrego un companero del grupo; grupo 7 (7.1-7.9) quedo marcado [x] y C-01 archivado.",
+      "pending": "Resuelto: despliegue/ limpiado (docs/LIMPIEZA_DESPLIEGUE_2026-11-06.md). Queda pendiente comparar byte a byte contra el TP original del compañero, que no esta versionado en el repo.",
       "handoff": "docs/HANDOFF_BASELINE_TP_CAP1a4.md"
     },
     "visual_design": {
@@ -331,18 +331,40 @@
         "CLAUDE.md"
       ]
     },
-    "next_action": "Esperar los documentos de los capitulos 1-4; con ellos, pasada de actualizacion de knowledge-base/ y luego /opsx:propose C-01-baseline-tp-y-fundacion."
+    "next_action": "PostgreSQL local disponible (.env en parcial/ y despliegue/). Cerrar C-01 (8 tareas de verificacion ahora ejecutables) y C-12 (10 tareas de verificacion contra base real). Luego continuar por el camino critico: C-14 (cambio de password + grupos de rutas)."
   },
   "changes_in_progress": [
     {
       "id": "C-01",
       "openspec_change": "c-01-baseline-tp-y-fundacion",
-      "status": "in_progress",
+      "status": "archivado_con_verificacion_pendiente",
       "date": "2026-11-05",
-      "done": "grupos 1-6: 20/28 tareas verificadas en parcial/",
-      "pending_verification": "3.3, 3.4, 3.5, mitad DB de 4.4, 5.3, 6.5 (no hay PostgreSQL local)",
-      "blocked": "grupo 7: 9 tareas BLOQUEADO por el TP cap. 1-4",
+      "done": "29/37 tareas; grupo 7 (TP cap 1-4) marcado [x] tras la entrega del companero",
+      "pending_verification": "1.4, 3.3, 3.4, 3.5, 4.4, 5.3, 6.4, 6.5",
+      "blocked": "DESBLOQUEADO: PostgreSQL 17 corriendo en 127.0.0.1:5432, base `libreria` creada, `.env` en parcial/. Las 8 tareas de verificacion ahora se pueden correr (pg_stat_activity, ready->200, upgrade head online, arranque desde carpeta limpia).",
+      "caveat": "despliegue/ limpiado (docs/LIMPIEZA_DESPLIEGUE_2026-11-06.md): 0 hits de conceptos del parcial, migraciones 0001/0002 byte-idénticas, arranca contra PostgreSQL. Queda pendiente comparar contra el TP original del compañero (no versionado en el repo).",
       "handoff": "docs/HANDOFF_BASELINE_TP_CAP1a4.md"
+    },
+    {
+      "id": "C-12",
+      "openspec_change": "c-12-auto-registro-atomico",
+      "status": "in_progress",
+      "date": "2026-11-06",
+      "governance": "CRITICO (RN-02) - aprobado explicitamente por el usuario",
+      "done": "22/22 tareas implementadas; 12 verificadas con tests, 10 ahora verificables con PostgreSQL",
+      "evidence": "46 passed en tests/test_registro_*.py; safety net 19/19; suite completa 151 passed / 0 errors contra PostgreSQL real (despues de agregar .env); 46 tests nuevos todos verdes",
+      "pending_verification": "5.1-5.6, 6.2, 7.1, 7.3, 7.4 - AHORA DESbloqueadas: PostgreSQL local y .env disponibles; pendiente ejecutarlas contra la base real (SELECT count(*) de atomicidad, .http contra uvicorn, alembic check)",
+      "artifacts": [
+        "openspec/changes/c-12-auto-registro-atomico/"
+      ],
+      "files": [
+        "parcial/app/modules/usuarios/schemas.py",
+        "parcial/app/modules/usuarios/repository.py",
+        "parcial/app/modules/usuarios/unit_of_work.py",
+        "parcial/app/modules/usuarios/service.py",
+        "parcial/app/modules/usuarios/router.py",
+        "parcial/test/registro.http"
+      ]
     }
   ]
 }

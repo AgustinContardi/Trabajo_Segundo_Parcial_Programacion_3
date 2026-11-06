@@ -560,7 +560,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-12] auto-registro-atomico
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[~]` en curso — implementado y con 46 tests sin base; 10 tareas abiertas esperan PostgreSQL local (2026-11-06)
 - **Scope**:
   - `POST /auth/registro` → **201** con `email`, `nombre` y `password`; `rol` **no** es un campo: mandarlo
     da **422** (`extra="forbid"`).

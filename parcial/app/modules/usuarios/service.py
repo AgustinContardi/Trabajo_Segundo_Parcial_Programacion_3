@@ -1,4 +1,4 @@
-"""Lógica de negocio del módulo `usuarios` — autenticación (C-11).
+"""Lógica de negocio del módulo `usuarios`: autenticación (C-11) y registro (C-12).
 
 El servicio recibe el Unit of Work y lo abre con `async with`; nunca una sesión
 asincrónica ni construye el UoW (CV-01). La única escritura que no comparte la
@@ -10,12 +10,16 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
-from app.core.security import create_access_token, verify_password
-from app.modules.usuarios.models import IntentoAcceso, Usuario
-from app.modules.usuarios.unit_of_work import UsuariosUnitOfWork
+from app.core.errors import traducir_integrity_error
+from app.core.security import create_access_token, hash_password, verify_password
+from app.modules.clientes.models import Cliente
+from app.modules.usuarios.models import AsignacionRol, IntentoAcceso, Usuario
+from app.modules.usuarios.schemas import UsuarioCreate
+from app.modules.usuarios.unit_of_work import RegistroUnitOfWork, UsuariosUnitOfWork
 
 _CREDENCIALES_INVALIDAS = "Credenciales inválidas"
 _DEMASIADOS_INTENTOS = "Demasiados intentos de inicio de sesión"
@@ -163,3 +167,58 @@ async def autenticar(
         token=token,
         expira_en_segundos=expira_en_segundos,
     )
+
+
+async def registrar(
+    uow: RegistroUnitOfWork,
+    data: UsuarioCreate,
+    *,
+    settings: Settings,
+    semaphore,
+) -> Usuario:
+    """Alta atómica de `RN-02`: usuario + rol `CLIENTE` + ficha de cliente.
+
+    Qué hace distinto: calcula el hash **antes** de abrir el Unit of Work, para
+    no retener una conexión de base mientras corre bcrypt, y escribe las tres
+    filas dentro de un único `async with`.
+
+    Por qué el `except` va fuera del bloque: si se atrapara adentro, `__aexit__`
+    vería una salida normal y confirmaría las filas parciales. Al salir la
+    excepción, `__aexit__` ejecuta `rollback()` y recién después se traduce a
+    `409`. La ficha va última para que el duplicado de cliente ejercite el
+    rollback completo.
+    """
+    password_hash = await hash_password(
+        data.password,
+        rounds=settings.BCRYPT_ROUNDS,
+        semaphore=semaphore,
+    )
+
+    usuario: Usuario
+    try:
+        async with uow:
+            usuario = await uow.usuarios.add(
+                Usuario(
+                    email=data.email,
+                    nombre=data.nombre,
+                    password_hash=password_hash,
+                )
+            )
+            await uow.roles.add(
+                AsignacionRol(
+                    usuario_id=usuario.id,
+                    rol="CLIENTE",
+                    desde=datetime.now(timezone.utc),
+                )
+            )
+            await uow.clientes.add(
+                Cliente(
+                    nombre=data.nombre,
+                    email=data.email,
+                    usuario_id=usuario.id,
+                )
+            )
+    except IntegrityError as exc:
+        raise traducir_integrity_error(exc) from exc
+
+    return usuario
