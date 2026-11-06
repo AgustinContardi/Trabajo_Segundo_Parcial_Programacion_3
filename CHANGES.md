@@ -363,7 +363,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-06] capas-editoriales-generos-autores
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado - archivado como `2026-11-05-c-06-capas-editoriales-generos-autores`. Refactor de editoriales/generos/autores a seis capas (repository + unit_of_work + service sin AsyncSession + router que construye el UoW), listados paginados, PATCH editorial/autor, listado de libros por entidad excluyendo borrados. Verificado: py_compile OK, import main OK, grep invariants vacios, runtime end-to-end contra PostgreSQL.
 - **Scope**:
   - Los tres módulos con sus seis capas (`models`, `schemas`, `repository`, `unit_of_work`, `service`,
     `router`); repositorios por entidad y UoW que los compone con la misma sesión.

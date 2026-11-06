@@ -1,33 +1,34 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_session
 from app.core.paginacion import Pagina
 from app.modules.generos import service
 from app.modules.generos.schemas import GeneroCreate, GeneroRead
-from app.modules.libros.schemas import LibroRead
+from app.modules.generos.unit_of_work import GenerosUnitOfWork, get_generos_uow
 from app.modules.libros import service as libros_service
+from app.modules.libros.schemas import LibroRead
 
 router = APIRouter(prefix="/generos", tags=["generos"])
 
 
 @router.post("/", response_model=GeneroRead, status_code=201)
-async def crear_genero(data: GeneroCreate, session: AsyncSession = Depends(get_session)):
-    obj = await service.crear(session, data)
-    await session.commit()
-    return obj
+async def crear_genero(
+    data: GeneroCreate, uow: GenerosUnitOfWork = Depends(get_generos_uow)
+):
+    return await service.crear(uow, data)
 
 
 @router.get("/", response_model=Pagina[GeneroRead])
 async def listar_generos(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
-    session: AsyncSession = Depends(get_session),
+    uow: GenerosUnitOfWork = Depends(get_generos_uow),
 ):
-    return await service.listar(session, page, size)
+    return await service.listar(uow, page, size)
 
 
 @router.get("/{genero_id}/libros", response_model=list[LibroRead])
-async def libros_de_genero(genero_id: int, session: AsyncSession = Depends(get_session)):
-    libros = await service.libros_de(session, genero_id)
+async def libros_de_genero(
+    genero_id: int, uow: GenerosUnitOfWork = Depends(get_generos_uow)
+):
+    libros = await service.libros_de(uow, genero_id)
     return [await libros_service.to_read(l) for l in libros]

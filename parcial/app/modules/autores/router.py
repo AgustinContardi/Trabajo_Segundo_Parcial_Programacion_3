@@ -1,35 +1,50 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, Query
 
-from app.core.database import get_session
+from app.core.paginacion import Pagina
 from app.modules.autores import service
 from app.modules.autores.schemas import AutorCreate, AutorRead, AutorUpdate
+from app.modules.autores.unit_of_work import AutoresUnitOfWork, get_autores_uow
+from app.modules.libros import service as libros_service
+from app.modules.libros.schemas import LibroRead
 
 router = APIRouter(prefix="/autores", tags=["autores"])
 
 
 @router.post("/", response_model=AutorRead, status_code=201)
-async def crear_autor(data: AutorCreate, session: AsyncSession = Depends(get_session)):
-    obj = await service.crear(session, data)
-    await session.commit()
-    return obj
+async def crear_autor(
+    data: AutorCreate, uow: AutoresUnitOfWork = Depends(get_autores_uow)
+):
+    return await service.crear(uow, data)
+
+
+@router.get("/", response_model=Pagina[AutorRead])
+async def listar_autores(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    uow: AutoresUnitOfWork = Depends(get_autores_uow),
+):
+    return await service.listar(uow, page, size)
 
 
 @router.get("/{autor_id}", response_model=AutorRead)
-async def obtener_autor(autor_id: int, session: AsyncSession = Depends(get_session)):
-    return await service.obtener(session, autor_id)
+async def obtener_autor(
+    autor_id: int, uow: AutoresUnitOfWork = Depends(get_autores_uow)
+):
+    return await service.obtener(uow, autor_id)
 
 
 @router.patch("/{autor_id}", response_model=AutorRead)
 async def actualizar_autor(
-    autor_id: int, data: AutorUpdate, session: AsyncSession = Depends(get_session)
+    autor_id: int,
+    data: AutorUpdate,
+    uow: AutoresUnitOfWork = Depends(get_autores_uow),
 ):
-    obj = await service.actualizar(session, autor_id, data)
-    await session.commit()
-    return obj
+    return await service.actualizar(uow, autor_id, data)
 
 
-@router.get("/{autor_id}/libros")
-async def libros_de_autor(autor_id: int, session: AsyncSession = Depends(get_session)):
-    rows = await service.libros_de(session, autor_id)
-    return [{"libro_id": r[0].id, "titulo": r[0].titulo, "rol": r[1], "orden": r[2]} for r in rows]
+@router.get("/{autor_id}/libros", response_model=list[LibroRead])
+async def libros_de_autor(
+    autor_id: int, uow: AutoresUnitOfWork = Depends(get_autores_uow)
+):
+    libros = await service.libros_de(uow, autor_id)
+    return [await libros_service.to_read(l) for l in libros]

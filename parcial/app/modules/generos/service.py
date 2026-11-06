@@ -1,48 +1,50 @@
-"""Lógica de negocio del módulo `generos` (TP cap. 1-4).
-
-Orden de resolución de errores (CV-08): 404 → 403 → 409 → 422.
-"""
+"""Lógica de negocio del módulo `generos`."""
 
 from typing import List
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import traducir_integrity_error
-from app.core.paginacion import paginar
+from app.core.paginacion import Pagina, paginar
 from app.modules.generos.models import Genero
 from app.modules.generos.schemas import GeneroCreate
+from app.modules.generos.unit_of_work import GenerosUnitOfWork
 from app.modules.libros.models import Libro
 
 
-async def crear(session: AsyncSession, data: GeneroCreate) -> Genero:
+async def crear(uow: GenerosUnitOfWork, data: GeneroCreate) -> Genero:
     obj = Genero(nombre=data.nombre)
-    session.add(obj)
     try:
-        await session.flush()
+        async with uow:
+            await uow.generos.add(obj)
     except IntegrityError as exc:
-        await session.rollback()
         raise traducir_integrity_error(exc)
-    await session.refresh(obj)
     return obj
 
 
-async def obtener(session: AsyncSession, genero_id: int) -> Genero:
-    obj = await session.get(Genero, genero_id)
+async def obtener(uow: GenerosUnitOfWork, genero_id: int) -> Genero:
+    async with uow:
+        obj = await uow.generos.get_by_id(genero_id)
     if obj is None:
         raise HTTPException(status_code=404, detail="Género no encontrado")
     return obj
 
 
-async def listar(session: AsyncSession, page: int = 1, size: int = 20):
-    stmt = select(Genero)
-    return await paginar(session, stmt, page, size)
+async def listar(
+    uow: GenerosUnitOfWork, page: int = 1, size: int = 20
+) -> Pagina[Genero]:
+    async with uow:
+        stmt = select(Genero)
+        pagina = await paginar(uow.session, stmt, page, size)
+    return pagina
 
 
-async def libros_de(session: AsyncSession, genero_id: int) -> List[Libro]:
-    await obtener(session, genero_id)
-    stmt = select(Libro).where(Libro.genero_id == genero_id)
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
+async def libros_de(uow: GenerosUnitOfWork, genero_id: int) -> List[Libro]:
+    async with uow:
+        obj = await uow.generos.get_by_id(genero_id)
+        if obj is None:
+            raise HTTPException(status_code=404, detail="Género no encontrado")
+        libros = await uow.generos.libros_de(genero_id)
+    return libros
