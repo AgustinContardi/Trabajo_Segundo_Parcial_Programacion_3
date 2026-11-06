@@ -85,8 +85,11 @@ from app.core.errors import manejador_request_validation_error
 
 app.add_exception_handler(RequestValidationError, manejador_request_validation_error)
 
-# Grupo abierto: salud + catálogo + clientes + ventas (TP cap. 1-4).
+# Grupo abierto: salud + autenticación + catálogo + clientes + ventas (TP cap. 1-4).
 app.include_router(health_router)
+from app.modules.usuarios.router import router as auth_router
+
+app.include_router(auth_router)
 from app.modules.editoriales.router import router as editoriales_router
 from app.modules.generos.router import router as generos_router
 from app.modules.autores.router import router as autores_router

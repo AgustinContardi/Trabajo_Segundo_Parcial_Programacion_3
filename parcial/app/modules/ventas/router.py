@@ -1,5 +1,10 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.core.dependencies import (
+    IdentidadActual,
+    get_sesion_actual,
+    requiere_rol,
+)
 from app.core.paginacion import Pagina
 from app.modules.ventas import service
 from app.modules.ventas.schemas import (
@@ -11,6 +16,10 @@ from app.modules.ventas.schemas import (
 from app.modules.ventas.unit_of_work import VentasUnitOfWork, get_ventas_uow
 
 router = APIRouter(prefix="/ventas", tags=["ventas"])
+
+# Sólo el listado completo es de personal; el detalle y «mis ventas» dependen
+# de la propiedad que decide el servicio (RN-14).
+_solo_personal = requiere_rol("VENDEDOR", "ADMIN")
 
 
 def _to_venta_read(v) -> VentaRead:
@@ -60,9 +69,10 @@ def _to_detail(venta) -> VentaDetailRead:
 async def mis_ventas(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    sesion: IdentidadActual = Depends(get_sesion_actual),
     uow: VentasUnitOfWork = Depends(get_ventas_uow),
 ):
-    pagina = await service.mis_ventas(uow, None, page, size)
+    pagina = await service.mis_ventas(uow, sesion, page, size)
     items = [_to_venta_read(v) for v in pagina.items]
     return Pagina(
         items=items,
@@ -77,6 +87,7 @@ async def mis_ventas(
 async def listar_ventas(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
+    _sesion: IdentidadActual = Depends(_solo_personal),
     uow: VentasUnitOfWork = Depends(get_ventas_uow),
 ):
     pagina = await service.listar(uow, page, size)
@@ -92,7 +103,9 @@ async def listar_ventas(
 
 @router.get("/{venta_id}", response_model=VentaDetailRead)
 async def obtener_venta(
-    venta_id: int, uow: VentasUnitOfWork = Depends(get_ventas_uow)
+    venta_id: int,
+    sesion: IdentidadActual = Depends(get_sesion_actual),
+    uow: VentasUnitOfWork = Depends(get_ventas_uow),
 ):
-    venta = await service.obtener(uow, venta_id)
+    venta = await service.obtener(uow, venta_id, actual=sesion)
     return _to_detail(venta)

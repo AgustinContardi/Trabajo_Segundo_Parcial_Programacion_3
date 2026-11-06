@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.core.dependencies import IdentidadActual, requiere_rol
 from app.core.paginacion import Pagina
 from app.modules.autores import service
 from app.modules.autores.schemas import AutorCreate, AutorRead, AutorUpdate
@@ -9,10 +10,14 @@ from app.modules.libros.schemas import LibroRead
 
 router = APIRouter(prefix="/autores", tags=["autores"])
 
+_solo_admin = requiere_rol("ADMIN")
+
 
 @router.post("/", response_model=AutorRead, status_code=201)
 async def crear_autor(
-    data: AutorCreate, uow: AutoresUnitOfWork = Depends(get_autores_uow)
+    data: AutorCreate,
+    _sesion: IdentidadActual = Depends(_solo_admin),
+    uow: AutoresUnitOfWork = Depends(get_autores_uow),
 ):
     return await service.crear(uow, data)
 
@@ -37,6 +42,7 @@ async def obtener_autor(
 async def actualizar_autor(
     autor_id: int,
     data: AutorUpdate,
+    _sesion: IdentidadActual = Depends(_solo_admin),
     uow: AutoresUnitOfWork = Depends(get_autores_uow),
 ):
     return await service.actualizar(uow, autor_id, data)

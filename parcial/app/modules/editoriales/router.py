@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.core.dependencies import IdentidadActual, requiere_rol
 from app.core.paginacion import Pagina
 from app.modules.editoriales import service
 from app.modules.editoriales.schemas import EditorialCreate, EditorialRead, EditorialUpdate
@@ -9,10 +10,14 @@ from app.modules.libros.schemas import LibroRead
 
 router = APIRouter(prefix="/editoriales", tags=["editoriales"])
 
+_solo_admin = requiere_rol("ADMIN")
+
 
 @router.post("/", response_model=EditorialRead, status_code=201)
 async def crear_editorial(
-    data: EditorialCreate, uow: EditorialesUnitOfWork = Depends(get_editoriales_uow)
+    data: EditorialCreate,
+    _sesion: IdentidadActual = Depends(_solo_admin),
+    uow: EditorialesUnitOfWork = Depends(get_editoriales_uow),
 ):
     return await service.crear(uow, data)
 
@@ -37,6 +42,7 @@ async def obtener_editorial(
 async def actualizar_editorial(
     editorial_id: int,
     data: EditorialUpdate,
+    _sesion: IdentidadActual = Depends(_solo_admin),
     uow: EditorialesUnitOfWork = Depends(get_editoriales_uow),
 ):
     return await service.actualizar(uow, editorial_id, data)

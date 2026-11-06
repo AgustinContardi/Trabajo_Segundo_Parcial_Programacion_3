@@ -1,0 +1,158 @@
+# C-11 — Autenticación con cookie (casos C-03, C-04 y C-05)
+#
+# Requisitos:
+#   - API en http://127.0.0.1:8000 con PostgreSQL real y esquema al día.
+#   - Un usuario ACTIVO `admin@example.com` con contraseña `admin12345` para C-03.
+#   - Un usuario INACTIVO `inactivo@example.com` con la misma contraseña para C-04.
+#   - C-05 usa un email inexistente: no necesita cuenta.
+#
+# El token viaja SÓLO en `Set-Cookie: access_token`; ningún JSON de este archivo
+# lo incluye. Cada cliente HTTP conserva su propia cookie entre peticiones.
+
+@host = http://127.0.0.1:8000
+@email = admin@example.com
+@password = admin12345
+@email_inexistente = c05-no-existe@example.com
+@email_c04_inexistente = c04-no-existe@example.com
+@email_inactivo = inactivo@example.com
+
+### C-03 · login correcto -> 200 + cookie HttpOnly
+# Esperado (cuerpo): {"mensaje":"Sesión iniciada","debe_cambiar_password":false,"expira_en_segundos":1800}
+# Esperado (cabecera): Set-Cookie: access_token=<jwt>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+# El JWT NO aparece en el cuerpo.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### C-03 · segunda sesión con otro cliente -> 200 + su propia cookie
+# Abrir este archivo en un segundo cliente/ventana para no mezclar cookies.
+# El cuerpo tampoco incluye el token.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### C-04 · contraseña incorrecta -> 401 genérico
+# Esperado: {"detail":"Credenciales inválidas"}
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "clave-incorrecta"
+}
+
+### C-04 · email inexistente -> 401 con el MISMO cuerpo y tiempo comparable
+# Esperado: {"detail":"Credenciales inválidas"}
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email_c04_inexistente}}",
+  "password": "{{password}}"
+}
+
+### C-04 · usuario inactivo -> 401 con el MISMO cuerpo, sin Set-Cookie
+# Esperado: {"detail":"Credenciales inválidas"}
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email_inactivo}}",
+  "password": "{{password}}"
+}
+
+### C-05 · intentos 1 a 5 -> 401 (se procesan y se registran)
+# Usar un email inexistente para aislar el conteo del caso C-03/C-04.
+# Esperado en cada uno: {"detail":"Credenciales inválidas"}
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email_inexistente}}",
+  "password": "clave-incorrecta"
+}
+
+###
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email_inexistente}}",
+  "password": "clave-incorrecta"
+}
+
+###
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email_inexistente}}",
+  "password": "clave-incorrecta"
+}
+
+###
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email_inexistente}}",
+  "password": "clave-incorrecta"
+}
+
+###
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email_inexistente}}",
+  "password": "clave-incorrecta"
+}
+
+### C-05 · sexto intento -> 429 + Retry-After en milisegundos, sin bcrypt
+# Esperado: 429 {"detail":"Demasiados intentos de inicio de sesión"}
+# Esperado (cabecera): Retry-After: <entero decimal>  (se interpreta como ms)
+# Verificación SQL:
+#   SELECT id, email, ip, exito, cuando FROM intento_acceso
+#    WHERE email = 'c05-no-existe@example.com' ORDER BY id;
+#   -> 6 filas: 5 con exito = false y el intento limitado.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email_inexistente}}",
+  "password": "{{password}}"
+}
+
+### C-11 · logout -> 200 + Set-Cookie con Max-Age=0
+# Esperado (cuerpo): {"mensaje":"Sesión cerrada"}
+# Esperado (cabecera): Set-Cookie: access_token=""; HttpOnly; Max-Age=0; Path=/; SameSite=lax
+POST {{host}}/auth/logout
+
+### C-11 · entrada inválida: campo no declarado -> 422
+# Esperado: 422 y sin ejecutar bcrypt.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "rol": "ADMIN"
+}
+
+### C-11 · entrada inválida: contraseña de más de 72 bytes -> 422
+# Esperado: 422 antes de bcrypt.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "ñññññññññññññññññññññññññññññññññññññ"
+}

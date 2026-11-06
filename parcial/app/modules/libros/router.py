@@ -2,6 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 
+from app.core.dependencies import IdentidadActual, requiere_rol
 from app.core.paginacion import Pagina
 from app.modules.libros import service
 from app.modules.libros.schemas import (
@@ -16,10 +17,14 @@ from app.modules.libros.unit_of_work import LibrosUnitOfWork, get_libros_uow
 
 router = APIRouter(prefix="/libros", tags=["libros"])
 
+_solo_admin = requiere_rol("ADMIN")
+
 
 @router.post("/", response_model=LibroDetailRead, status_code=201)
 async def crear_libro(
-    data: LibroCreate, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+    data: LibroCreate,
+    _sesion: IdentidadActual = Depends(_solo_admin),
+    uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
     libro = await service.crear(uow, data)
     libro = await service.obtener(uow, libro.id)
@@ -57,6 +62,7 @@ async def obtener_libro(
 async def actualizar_libro(
     libro_id: int,
     data: LibroUpdate,
+    _sesion: IdentidadActual = Depends(_solo_admin),
     uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
     libro = await service.actualizar(uow, libro_id, data)
@@ -66,7 +72,9 @@ async def actualizar_libro(
 
 @router.delete("/{libro_id}", status_code=204)
 async def dar_de_baja_libro(
-    libro_id: int, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+    libro_id: int,
+    _sesion: IdentidadActual = Depends(_solo_admin),
+    uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
     await service.dar_de_baja(uow, libro_id)
     return None
@@ -76,6 +84,7 @@ async def dar_de_baja_libro(
 async def reponer_libro(
     libro_id: int,
     data: ReponerCreate,
+    _sesion: IdentidadActual = Depends(_solo_admin),
     uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
     libro = await service.reponer(uow, libro_id, data.cantidad)
@@ -85,7 +94,9 @@ async def reponer_libro(
 
 @router.get("/{libro_id}/movimientos", response_model=list[MovimientoStockRead])
 async def movimientos_libro(
-    libro_id: int, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+    libro_id: int,
+    _sesion: IdentidadActual = Depends(_solo_admin),
+    uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
     items = await service.movimientos(uow, libro_id)
     return items

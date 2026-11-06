@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.core.dependencies import IdentidadActual, requiere_rol
 from app.core.paginacion import Pagina
 from app.modules.generos import service
 from app.modules.generos.schemas import GeneroCreate, GeneroRead
@@ -9,10 +10,14 @@ from app.modules.libros.schemas import LibroRead
 
 router = APIRouter(prefix="/generos", tags=["generos"])
 
+_solo_admin = requiere_rol("ADMIN")
+
 
 @router.post("/", response_model=GeneroRead, status_code=201)
 async def crear_genero(
-    data: GeneroCreate, uow: GenerosUnitOfWork = Depends(get_generos_uow)
+    data: GeneroCreate,
+    _sesion: IdentidadActual = Depends(_solo_admin),
+    uow: GenerosUnitOfWork = Depends(get_generos_uow),
 ):
     return await service.crear(uow, data)
 

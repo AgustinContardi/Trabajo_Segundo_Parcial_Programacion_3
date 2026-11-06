@@ -5,11 +5,12 @@ sesión asincrónica ni construye el UoW (CV-01). Orden de errores (CV-08):
 404 → 403 → 409 → 422.
 """
 
-from typing import Any, Optional, Tuple
+from typing import Tuple
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
+from app.core.dependencies import IdentidadActual
 from app.core.errors import traducir_integrity_error
 from app.core.paginacion import Pagina
 from app.modules.clientes.models import Cliente, PerfilCliente
@@ -18,37 +19,10 @@ from app.modules.clientes.unit_of_work import ClientesUnitOfWork
 from app.modules.ventas.models import Venta
 
 
-def _roles_de(actual: Any) -> Optional[list[Any]]:
-    """Extrae la lista de roles de `actual` soportando varias formas."""
-    if actual is None:
-        return None
-    if isinstance(actual, (list, set, tuple)):
-        return list(actual)
-    if isinstance(actual, dict):
-        for key in ("roles", "rol", "role", "roles_activos"):
-            if key in actual:
-                val = actual[key]
-                return [val] if isinstance(val, str) else list(val)
-        return None
-    for attr in ("roles", "rol", "role", "roles_activos"):
-        if hasattr(actual, attr):
-            val = getattr(actual, attr)
-            if isinstance(val, str):
-                return [val]
-            try:
-                return list(val)
-            except TypeError:
-                return [val]
-    return None
-
-
-def _es_cliente_solo(actual: Any) -> bool:
-    """True si `actual` tiene únicamente el rol CLIENTE."""
-    roles = _roles_de(actual)
-    if not roles:
-        return False
-    normalizados = {str(r).upper() for r in roles}
-    return normalizados == {"CLIENTE"}
+def _es_cliente_solo(actual: IdentidadActual) -> bool:
+    """True si la identidad vigente tiene únicamente el rol CLIENTE."""
+    roles = {str(rol).strip().upper() for rol in actual.roles_db}
+    return roles == {"CLIENTE"}
 
 
 async def crear(uow: ClientesUnitOfWork, data: ClienteCreate) -> Cliente:
@@ -109,13 +83,19 @@ async def ventas_de(
     cliente_id: int,
     page: int = 1,
     size: int = 20,
-    actual: Any = None,
+    *,
+    actual: IdentidadActual,
 ) -> Tuple[Cliente, Pagina[Venta]]:
+    """Lista ventas del cliente; `actual` es obligatorio.
+
+    La primera barrera es la dependencia `requiere_rol` del router. El guard de
+    `_es_cliente_solo` queda como defensa en profundidad para una llamada
+    directa al servicio.
+    """
     async with uow:
         cliente = await uow.clientes.get_by_id(cliente_id)
         if cliente is None:
             raise HTTPException(status_code=404, detail="Cliente no encontrado")
-        # Punto de decisión de autorización (cableado completo en C-13).
         if _es_cliente_solo(actual):
             raise HTTPException(status_code=403, detail="No autorizado")
         pagina = await uow.clientes.ventas_de(cliente_id, page, size)

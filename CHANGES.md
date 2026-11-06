@@ -393,7 +393,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-07] capas-clientes-y-perfil
 
-- **Estado**: `[x]` cerrado - archivado como `2026-11-06-c-07-capas-clientes-y-perfil`. Modulo `clientes` a seis capas (ClienteRepository con precarga de perfil/usuario, ClientesUnitOfWork, service sin AsyncSession, router que construye el UoW), POST/GET/PATCH cliente, POST perfil, GET /clientes/{id}/ventas paginado con punto de decision 403 para CLIENTE. Verificado: py_compile OK, import main OK, grep invariants vacios, runtime end-to-end contra PostgreSQL.
+- **Estado**: `[x]` cerrado - archivado como `2026-11-06-c-07-capas-clientes-y-perfil`. C-13 completó la autorización que faltaba: `GET /clientes/{id}/ventas` responde 401 sin cookie, 403 a CLIENTE y 200 a VENDEDOR/ADMIN con el envoltorio paginado, y el servicio recibe la identidad actual (`IdentidadActual`). Verificado: 105 pruebas pasan contra PostgreSQL 17 local.
 - **Scope**:
   - Módulo `clientes` con sus seis capas; `ClienteRepository` con precarga de `perfil` y de `usuario`
     declarada en el método que la necesita.
@@ -520,7 +520,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-11] seguridad-login-cookie
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado - archivado como `2026-11-06-c-11-seguridad-login-cookie`. Implementa la base de autenticacion: `COOKIE_SECURE`, helpers bcrypt (`to_thread` + semaforo), JWT y cookie `HttpOnly`/`SameSite`/`Max-Age`/`Secure`, repositorio/UoW/servicio/router de `usuarios`, `POST /auth/login`, `POST /auth/logout`, `get_usuario_actual` leyendo solo `request.cookies` y registro de cada intento en transaccion propia (`IntentoAcceso.cuando` explicito para evitar el default de timestamp congelado de la migracion `dd4a0e5e9cf7`), con `Retry-After` como entero decimal en milisegundos. Verificado: 54 pruebas pasan contra PostgreSQL 17 local. No cierra la autorizacion por roles de C-13 ni el 403 pendiente de `GET /clientes/{id}/ventas` en C-07.
 - **Scope**:
   - `app/core/security.py`: bcrypt con costo desde `BCRYPT_ROUNDS`; **toda** llamada envuelta en
     `to_thread` y bajo un semáforo de `BCRYPT_MAX_CONCURRENCY`; helpers de hash/verificación; JWT firmado
@@ -595,7 +595,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-13] requiere-rol-y-yo
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado - archivado como `2026-11-06-c-13-requiere-rol-y-yo`. Implementa `IdentidadActual`, `get_sesion_actual` y `requiere_rol(*roles)` en `parcial/app/core/dependencies.py`, con los roles vigentes leídos de `asignacion_rol` en cada petición y la misma sesión del UoW (el claim `roles` del token es sólo informativo). Agrega `GET /auth/yo` con usuario sin `password_hash`, roles de la base y roles del token, y aplica la matriz RBAC: clientes y `GET /ventas` para VENDEDOR/ADMIN; mutaciones de catálogo y `/libros/{id}/movimientos` sólo ADMIN; `GET /ventas/{id}` y `/mis-ventas` sólo exigen autenticación y la propiedad la decide el servicio. Cierra el pendiente de C-07: `GET /clientes/{id}/ventas` responde 401 sin cookie, 403 a CLIENTE y 200 a VENDEDOR/ADMIN con el envoltorio paginado. Verificado: 105 pruebas pasan contra PostgreSQL 17 local; sin migraciones nuevas.
 - **Scope**:
   - `requiere_rol(*roles)` en `app/core/dependencies.py`: consulta `asignacion_rol` **en cada petición**
     con la **misma sesión** del UoW (`revocada_en IS NULL AND (vence_en IS NULL OR vence_en > now())`) y

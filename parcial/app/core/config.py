@@ -12,9 +12,9 @@ Contrato de este módulo:
   `lifespan` de `main.py` y desde `migrations/env.py`. Nada de configuración se
   evalúa al importar: importar el paquete no debe exigir un entorno completo.
 
-Nota de contrato (C-11): `COOKIE_SECURE` se agrega en `C-11`, junto con la
-cookie `access_token`; no forma parte de las trece variables de este change.
-Los secretos no tienen default y no se registran en logs.
+`COOKIE_SECURE` controla el atributo `Secure` de la cookie: se activa por
+default y puede desactivarse explícitamente para desarrollo local HTTP. Los
+secretos no tienen default y no se registran en logs.
 """
 
 from functools import lru_cache
@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     LOGIN_VENTANA_SEG: int = 60
     POOL_SIZE: int = 5
     SQL_ECHO: bool = False
+    COOKIE_SECURE: bool = True
 
     @computed_field(repr=False)  # type: ignore[prop-decorator]
     @property

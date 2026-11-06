@@ -1,0 +1,275 @@
+# C-06 / C-07 — Autorización por rol vigente y propiedad (C-13)
+#
+# Requisitos:
+#   - API en http://127.0.0.1:8000 con PostgreSQL 17 real y esquema al día
+#     (sin migraciones nuevas en C-13).
+#   - Ejecutar UNA VEZ el bloque SQL de preparación de abajo. Crea cuentas con
+#     contraseña `clave-segura-123` (hash bcrypt de prueba, no es un secreto).
+#   - Completar las variables @cliente_ana, @venta_ana y @cliente_beto con los
+#     ids que imprime el SELECT final.
+#
+# El token viaja SÓLO en `Set-Cookie: access_token`; ningún JSON de este
+# archivo lo incluye. Para los casos con dos identidades, abrir este archivo en
+# dos ventanas/clientes REST distintos (cada uno conserva su propia cookie) o
+# usar `# @name` + `# @no-cookie-jar` según el cliente.
+#
+# ---------------------------------------------------------------------------
+# PREPARACIÓN SQL (psql -U libreria -d libreria)
+# ---------------------------------------------------------------------------
+-- Usuarios de prueba (idempotente por email).
+INSERT INTO usuario (email, nombre, password_hash, activo, debe_cambiar_password)
+SELECT 'ana@example.com', 'Ana', '$2b$12$qSv.4Tov3vHyoDODi/eWxOYclsbomk.3jV2EMfieDOSbhKmd8IYY.', true, false
+WHERE NOT EXISTS (SELECT 1 FROM usuario WHERE email = 'ana@example.com');
+INSERT INTO usuario (email, nombre, password_hash, activo, debe_cambiar_password)
+SELECT 'beto@example.com', 'Beto', '$2b$12$qSv.4Tov3vHyoDODi/eWxOYclsbomk.3jV2EMfieDOSbhKmd8IYY.', true, false
+WHERE NOT EXISTS (SELECT 1 FROM usuario WHERE email = 'beto@example.com');
+INSERT INTO usuario (email, nombre, password_hash, activo, debe_cambiar_password)
+SELECT 'vendedor@example.com', 'Vendedor', '$2b$12$qSv.4Tov3vHyoDODi/eWxOYclsbomk.3jV2EMfieDOSbhKmd8IYY.', true, false
+WHERE NOT EXISTS (SELECT 1 FROM usuario WHERE email = 'vendedor@example.com');
+INSERT INTO usuario (email, nombre, password_hash, activo, debe_cambiar_password)
+SELECT 'vencido@example.com', 'Vencido', '$2b$12$qSv.4Tov3vHyoDODi/eWxOYclsbomk.3jV2EMfieDOSbhKmd8IYY.', true, false
+WHERE NOT EXISTS (SELECT 1 FROM usuario WHERE email = 'vencido@example.com');
+--
+-- Roles abiertos (la fila revocada nunca se borra: RN-03).
+INSERT INTO asignacion_rol (usuario_id, rol, desde)
+SELECT u.id, 'CLIENTE', now() FROM usuario u
+WHERE u.email = 'ana@example.com'
+  AND NOT EXISTS (SELECT 1 FROM asignacion_rol a WHERE a.usuario_id = u.id AND a.rol = 'CLIENTE' AND a.revocada_en IS NULL);
+INSERT INTO asignacion_rol (usuario_id, rol, desde)
+SELECT u.id, 'CLIENTE', now() FROM usuario u
+WHERE u.email = 'beto@example.com'
+  AND NOT EXISTS (SELECT 1 FROM asignacion_rol a WHERE a.usuario_id = u.id AND a.rol = 'CLIENTE' AND a.revocada_en IS NULL);
+INSERT INTO asignacion_rol (usuario_id, rol, desde)
+SELECT u.id, 'VENDEDOR', now() FROM usuario u
+WHERE u.email = 'vendedor@example.com'
+  AND NOT EXISTS (SELECT 1 FROM asignacion_rol a WHERE a.usuario_id = u.id AND a.rol = 'VENDEDOR' AND a.revocada_en IS NULL);
+INSERT INTO asignacion_rol (usuario_id, rol, desde)
+SELECT u.id, 'ADMIN', now() FROM usuario u
+WHERE u.email = 'vendedor@example.com'
+  AND NOT EXISTS (SELECT 1 FROM asignacion_rol a WHERE a.usuario_id = u.id AND a.rol = 'ADMIN' AND a.revocada_en IS NULL);
+-- Rol ya vencido para C-07.
+INSERT INTO asignacion_rol (usuario_id, rol, desde, vence_en)
+SELECT u.id, 'VENDEDOR', now() - interval '2 hours', now() - interval '1 hour'
+FROM usuario u
+WHERE u.email = 'vencido@example.com'
+  AND NOT EXISTS (SELECT 1 FROM asignacion_rol a WHERE a.usuario_id = u.id AND a.rol = 'VENDEDOR' AND a.revocada_en IS NULL);
+--
+-- Fichas de cliente ligadas a ana y beto.
+INSERT INTO cliente (nombre, email, usuario_id)
+SELECT 'Ana', 'ana-cliente@example.com', u.id FROM usuario u
+WHERE u.email = 'ana@example.com'
+  AND NOT EXISTS (SELECT 1 FROM cliente c WHERE c.usuario_id = u.id);
+INSERT INTO cliente (nombre, email, usuario_id)
+SELECT 'Beto', 'beto-cliente@example.com', u.id FROM usuario u
+WHERE u.email = 'beto@example.com'
+  AND NOT EXISTS (SELECT 1 FROM cliente c WHERE c.usuario_id = u.id);
+--
+-- Una venta de Ana (sólo si todavía no tiene).
+INSERT INTO venta (cliente_id, fecha, total)
+SELECT c.id, now(), 125.50 FROM cliente c
+JOIN usuario u ON u.id = c.usuario_id
+WHERE u.email = 'ana@example.com'
+  AND NOT EXISTS (SELECT 1 FROM venta v WHERE v.cliente_id = c.id);
+--
+-- IDs para las variables de abajo.
+SELECT u.email, u.id AS usuario_id,
+       (SELECT c.id FROM cliente c WHERE c.usuario_id = u.id) AS cliente_id
+FROM usuario u
+WHERE u.email IN ('ana@example.com', 'beto@example.com', 'vendedor@example.com', 'vencido@example.com')
+ORDER BY u.email;
+SELECT v.id AS venta_id, v.cliente_id FROM venta v
+JOIN cliente c ON c.id = v.cliente_id
+JOIN usuario u ON u.id = c.usuario_id
+WHERE u.email = 'ana@example.com'
+ORDER BY v.id DESC LIMIT 1;
+
+# ---------------------------------------------------------------------------
+# Variables
+# ---------------------------------------------------------------------------
+@host = http://127.0.0.1:8000
+@password = clave-segura-123
+@ana = ana@example.com
+@beto = beto@example.com
+@vendedor = vendedor@example.com
+@vencido = vencido@example.com
+@cliente_ana = 1
+@cliente_beto = 2
+@venta_ana = 1
+@isbn_prueba = isbn-c06-00000000000000000000000000000001
+
+# ---------------------------------------------------------------------------
+# C-06 · Autenticación, rol y propiedad
+# ---------------------------------------------------------------------------
+
+### C-06.1 · GET /clientes/{id}/ventas sin cookie -> 401
+# Esperado: 401 {"detail":"No autenticado"}
+GET {{host}}/clientes/{{cliente_ana}}/ventas
+
+### C-06.2 · ana (CLIENTE) no lee ventas de clientes -> 403 genérico
+# Iniciar sesión con ana en este cliente REST antes de esta petición.
+# Esperado: 403 {"detail":"No autorizado"}
+# No se ejecuta la consulta de ventas ni se revela el rol de ana.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{ana}}",
+  "password": "{{password}}"
+}
+
+###
+GET {{host}}/clientes/{{cliente_ana}}/ventas
+
+### C-06.3 · VENDEDOR lee las ventas del cliente -> 200 con envoltorio
+# Usar OTRO cliente REST y loguear vendedor (VENDEDOR + ADMIN en el setup).
+# Esperado: 200 {"items":[...],"total":N,"page":1,"size":20,"pages":N}
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{vendedor}}",
+  "password": "{{password}}"
+}
+
+###
+GET {{host}}/clientes/{{cliente_ana}}/ventas
+
+### C-06.4 · ADMIN lee las ventas del cliente -> 200 con el mismo envoltorio
+# Esperado: 200 con items, total, page, size y pages.
+GET {{host}}/clientes/{{cliente_ana}}/ventas
+
+### C-06.5 · cliente inexistente para personal autorizado -> 404
+# Esperado: 404 {"detail":"Cliente no encontrado"} (la dependencia de rol ya pasó).
+GET {{host}}/clientes/999999999/ventas
+
+### C-06.6 · GET /ventas/{id} sin cookie -> 401
+# Usar un cliente REST sin cookie.
+# Esperado: 401 {"detail":"No autenticado"}
+GET {{host}}/ventas/{{venta_ana}}
+
+### C-06.7 · ana dueña consulta su venta -> 200
+# Esperado: 200 con el detalle de la venta; cliente.id = @cliente_ana.
+GET {{host}}/ventas/{{venta_ana}}
+
+### C-06.8 · beto (CLIENTE ajeno) consulta la venta de ana -> 403
+# Loguear beto en otro cliente REST.
+# Esperado: 403 {"detail":"No autorizado"}
+# Lo decide el servicio (RN-14), no `requiere_rol`: la ruta sólo autentica.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{beto}}",
+  "password": "{{password}}"
+}
+
+###
+GET {{host}}/ventas/{{venta_ana}}
+
+### C-06.9 · VENDEDOR no administra el catálogo -> 403
+# Esperado: 403 {"detail":"No autorizado"} y ningún libro creado.
+POST {{host}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "{{isbn_prueba}}",
+  "titulo": "No debe crearse",
+  "precio": "10.00",
+  "stock_inicial": 0,
+  "editorial_id": 1,
+  "autores": []
+}
+
+### C-06.10 · lectura pública sigue abierta sin cookie -> 200
+# Esperado: 200 con el envoltorio de libros (no exige sesión ni rol).
+GET {{host}}/libros/
+
+# ---------------------------------------------------------------------------
+# C-07 · Revocación y vencimiento con la cookie ya emitida
+# ---------------------------------------------------------------------------
+
+### C-07.1 · login de vendedor y /auth/yo inicial
+# Guardar esta cookie (dos sesiones: una para /auth/yo y otra para la ruta).
+# Esperado login: 200 {"mensaje":"Sesión iniciada",...}
+# Esperado /auth/yo: 200 con "roles":["ADMIN","VENDEDOR"] y
+#                    "roles_token":["ADMIN","VENDEDOR"].
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{vendedor}}",
+  "password": "{{password}}"
+}
+
+###
+GET {{host}}/auth/yo
+
+### C-07.2 · revocar VENDEDOR con la sesión abierta (SQL)
+# Ejecutar en psql; la fila NO se borra, sólo se marca:
+#   UPDATE asignacion_rol a SET revocada_en = now()
+#    FROM usuario u
+#    WHERE a.usuario_id = u.id AND u.email = 'vendedor@example.com'
+#      AND a.rol = 'VENDEDOR' AND a.revocada_en IS NULL;
+# Verificación: SELECT rol, revocada_en FROM asignacion_rol
+#   JOIN usuario ... WHERE email = 'vendedor@example.com' ORDER BY id;
+#   -> la fila de VENDEDOR conserva revocada_en con fecha.
+--
+### C-07.3 · /auth/yo con la MISMA cookie muestra la diferencia
+# Esperado: 200 con "roles":["ADMIN"] y
+#                    "roles_token":["ADMIN","VENDEDOR"].
+# (El token conserva VENDEDOR; la base ya no lo considera vigente.)
+GET {{host}}/auth/yo
+
+### C-07.4 · la MISMA cookie ya no entra a una ruta que exige VENDEDOR/ADMIN
+# Como el usuario conserva ADMIN, esta ruta sigue dando 200. Para probar el
+# 403 hay que revocar TAMBIÉN ADMIN y repetir:
+#   UPDATE asignacion_rol a SET revocada_en = now()
+#    FROM usuario u
+#    WHERE a.usuario_id = u.id AND u.email = 'vendedor@example.com'
+#      AND a.rol = 'ADMIN' AND a.revocada_en IS NULL;
+# Esperado tras revocar ambos roles: 403 {"detail":"No autorizado"}.
+GET {{host}}/clientes/{{cliente_ana}}/ventas
+
+### C-07.5 · rol con vence_en pasado no autoriza -> 403
+# Loguear vencido@example.com (su único VENDEDOR ya venció).
+# Esperado login: 200 (la cuenta está activa; el token se emite sin ese rol).
+# Esperado ruta: 403 {"detail":"No autorizado"}.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{vencido}}",
+  "password": "{{password}}"
+}
+
+###
+GET {{host}}/clientes/{{cliente_ana}}/ventas
+
+### C-07.6 · restaurar VENDEDOR/ADMIN para repetir la prueba
+# La reasignación abre una fila nueva; la revocada se conserva (RN-03).
+#   INSERT INTO asignacion_rol (usuario_id, rol, desde)
+#   SELECT u.id, 'VENDEDOR', now() FROM usuario u
+#    WHERE u.email = 'vendedor@example.com';
+#   INSERT INTO asignacion_rol (usuario_id, rol, desde)
+#   SELECT u.id, 'ADMIN', now() FROM usuario u
+#    WHERE u.email = 'vendedor@example.com';
+# Esperado tras restaurar y con una cookie nueva: 200.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{vendedor}}",
+  "password": "{{password}}"
+}
+
+###
+GET {{host}}/clientes/{{cliente_ana}}/ventas
+
+# ---------------------------------------------------------------------------
+# Casos C-07 que dependen de C-15 (NO ejecutables en C-13)
+# ---------------------------------------------------------------------------
+# - Asignar/revocar roles por API y validar `vence_en` sin zona o en el pasado
+#   -> 422: requiere `POST /usuarios/{id}/roles` (C-15).
+# - Reasignar un rol vencido por API y comprobar que cierra la fila anterior:
+#   requiere C-15. En C-13 la revocación/expiración se prueba por SQL (C-07.2
+#   y C-07.5) y la fila se conserva.
