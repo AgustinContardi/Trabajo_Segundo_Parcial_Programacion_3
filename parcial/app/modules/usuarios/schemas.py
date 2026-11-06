@@ -86,3 +86,22 @@ class YoResponse(BaseModel):
     usuario: UsuarioRead
     roles: list[str]
     roles_token: list[str]
+
+
+class CambiarPasswordRequest(BaseModel, SinNulMixin):
+    """Contraseña actual + nueva, cada una ≤ 72 bytes (límite de bcrypt)."""
+
+    model_config = ConfigDict(extra="forbid")
+    password_actual: str
+    password_nueva: str
+
+    @field_validator("password_actual", "password_nueva")
+    @classmethod
+    def _password_bytes(cls, value: str) -> str:
+        return validar_password_bytes(value)  # type: ignore[return-value]
+
+
+class CambiarPasswordResponse(BaseModel):
+    """Respuesta de cambio de contraseña: solo mensaje, sin token ni cookie nueva."""
+
+    mensaje: str

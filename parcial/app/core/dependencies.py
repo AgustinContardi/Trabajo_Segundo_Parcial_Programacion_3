@@ -128,3 +128,18 @@ def requiere_rol(*roles: str):
         return sesion
 
     return dependencia
+
+
+async def control_cambio_password(
+    usuario: Usuario = Depends(get_usuario_actual),
+) -> Usuario:
+    """Puerta de cambio obligatorio: si `debe_cambiar_password = true` responde
+    403; si es false, devuelve el usuario para que el router lo use.
+
+    Se monta **una sola vez** a nivel del router protegido. El orden de
+    resolución es: 401 (get_usuario_actual) → 403 (cambio pendiente) → 403
+    (requiere_rol) → negocio.
+    """
+    if usuario.debe_cambiar_password:
+        raise HTTPException(status_code=403, detail=_NO_AUTORIZADO)
+    return usuario

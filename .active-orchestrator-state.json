@@ -331,7 +331,7 @@
         "CLAUDE.md"
       ]
     },
-    "next_action": "PostgreSQL local disponible (.env en parcial/ y despliegue/). Cerrar C-01 (8 tareas de verificacion ahora ejecutables) y C-12 (10 tareas de verificacion contra base real). Luego continuar por el camino critico: C-14 (cambio de password + grupos de rutas)."
+    "next_action": "C-14 cerrado y verificado (172 passed / 0 errors). Siguiente en el camino crítico: C-15 (admin usuarios/roles/eventos). C-01 y C-12 tienen tareas de verificación ejecutables contra PostgreSQL real si se quiere cerrarlas antes."
   },
   "changes_in_progress": [
     {
@@ -365,6 +365,29 @@
         "parcial/app/modules/usuarios/router.py",
         "parcial/test/registro.http"
       ]
+    },
+    {
+      "id": "C-14",
+      "openspec_change": "c-14-cambio-password-grupos-de-rutas",
+      "status": "cerrado_verificado",
+      "date": "2026-11-06",
+      "governance": "CRITICO (RN-04, RN-06, RN-16) - aprobado explicitamente por el usuario",
+      "done": "17/17 tareas verificadas (172 passed / 0 errors vs baseline 151/0); marcado [x] en CHANGES.md",
+      "evidence": "21 tests nuevos todos verdes; sin regresiones; 4 migraciones intactas; despliegue/ sin tocar; 0 commit() en repositorios",
+      "artifacts": [
+        "openspec/changes/c-14-cambio-password-grupos-de-rutas/"
+      ],
+      "files": [
+        "parcial/app/core/dependencies.py",
+        "parcial/app/main.py",
+        "parcial/app/modules/usuarios/router.py",
+        "parcial/app/modules/usuarios/service.py",
+        "parcial/app/modules/usuarios/repository.py",
+        "parcial/app/modules/usuarios/unit_of_work.py",
+        "parcial/app/modules/usuarios/schemas.py"
+      ],
+      "riesgo_conocido": "libros_router entero en grupo abierto (no se pudo partir por restricción de archivos editables); mutaciones de libros protegidas por requiere_rol ADMIN pero sin control de cambio obligatorio",
+      "tareas_abiertas_cerradas_por_equivalente": ["7.1 (.http casos cubiertos por test_cambio_password_api.py)", "8.2 (ítems CHECKLIST §1/§5/§7/§10 cubiertos por suite pytest contra base real)"]
     }
   ]
 }

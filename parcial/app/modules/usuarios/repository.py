@@ -12,8 +12,14 @@ from typing import Any
 
 from sqlalchemy import func, or_, select
 
+from app.core.paginacion import paginar
 from app.core.repository import BaseRepository
-from app.modules.usuarios.models import AsignacionRol, IntentoAcceso, Usuario
+from app.modules.usuarios.models import (
+    AsignacionRol,
+    EventoSeguridad,
+    IntentoAcceso,
+    Usuario,
+)
 
 # Corte inferior del conteo cuando el par email/IP nunca inició sesión.
 _EPOCA = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -103,3 +109,24 @@ class IntentoAccesoRepository(BaseRepository[IntentoAcceso]):
         result = await self._session.execute(stmt)
         cantidad, primer_fallo = result.one()
         return ResumenFallos(cantidad=int(cantidad), primer_fallo=primer_fallo)
+
+
+class EventoSeguridadRepository(BaseRepository[EventoSeguridad]):
+    """Lectura y escritura de eventos de seguridad (RN-16).
+
+    `add()` escribe una línea y hace flush (sin commit: lo confirma el UoW).
+    `listado()` devuelve el envoltorio canónico {items, total, page, size, pages}.
+    """
+
+    def __init__(self, session: Any) -> None:
+        super().__init__(session, EventoSeguridad)
+
+    async def listado(
+        self, page: int = 1, size: int = 20
+    ) -> Pagina[EventoSeguridad]:
+        """Listado paginado de eventos, más recientes primero."""
+        stmt = (
+            select(EventoSeguridad)
+            .order_by(EventoSeguridad.cuando.desc(), EventoSeguridad.id.desc())
+        )
+        return await paginar(self._session, stmt, page=page, size=size)

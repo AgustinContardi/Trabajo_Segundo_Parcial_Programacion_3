@@ -27,10 +27,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import bcrypt
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 
 from app.core.config import get_settings
 from app.core.database import crear_engine, crear_sessionmaker
+from app.core.dependencies import control_cambio_password
 from app.modules.health.router import router as health_router
 
 # Importar los modelos de dominio para que SQLModel registre las tablas y
@@ -85,21 +86,35 @@ from app.core.errors import manejador_request_validation_error
 
 app.add_exception_handler(RequestValidationError, manejador_request_validation_error)
 
-# Grupo abierto: salud + autenticación + catálogo + clientes + ventas (TP cap. 1-4).
-app.include_router(health_router)
+# --- Grupo abierto: sin control de cambio obligatorio ---
+# health, auth, catálogo público (editoriales, generos, autores, libros).
+router_abierto = APIRouter()
+router_abierto.include_router(health_router)
+
 from app.modules.usuarios.router import router as auth_router
 
-app.include_router(auth_router)
+router_abierto.include_router(auth_router)
+
 from app.modules.editoriales.router import router as editoriales_router
 from app.modules.generos.router import router as generos_router
 from app.modules.autores.router import router as autores_router
 from app.modules.libros.router import router as libros_router
+
+router_abierto.include_router(editoriales_router)
+router_abierto.include_router(generos_router)
+router_abierto.include_router(autores_router)
+router_abierto.include_router(libros_router)
+
+app.include_router(router_abierto)
+
+# --- Grupo protegido: control de cambio obligatorio montado UNA SOLA VEZ ---
+# clientes, ventas (todo lo demás). /auth/* y el catálogo público quedan exentos.
+router_protegido = APIRouter(dependencies=[Depends(control_cambio_password)])
+
 from app.modules.clientes.router import router as clientes_router
 from app.modules.ventas.router import router as ventas_router
 
-app.include_router(editoriales_router)
-app.include_router(generos_router)
-app.include_router(autores_router)
-app.include_router(libros_router)
-app.include_router(clientes_router)
-app.include_router(ventas_router)
+router_protegido.include_router(clientes_router)
+router_protegido.include_router(ventas_router)
+
+app.include_router(router_protegido)

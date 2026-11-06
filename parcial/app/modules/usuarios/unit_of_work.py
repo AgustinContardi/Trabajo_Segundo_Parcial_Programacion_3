@@ -13,6 +13,7 @@ from app.core.unit_of_work import UnitOfWork
 from app.modules.clientes.repository import ClienteRepository
 from app.modules.usuarios.repository import (
     AsignacionRolRepository,
+    EventoSeguridadRepository,
     IntentoAccesoRepository,
     UsuarioRepository,
 )
@@ -47,3 +48,19 @@ async def get_registro_uow(
     session: AsyncSession = Depends(get_session),
 ) -> RegistroUnitOfWork:
     return RegistroUnitOfWork(session)
+
+
+class CambioPasswordUnitOfWork(UnitOfWork):
+    """Compone usuarios + eventos sobre una misma sesión para el cambio de
+    contraseña (RN-16: tres escrituras en una sola transacción)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(session)
+        self.usuarios = UsuarioRepository(session)
+        self.eventos = EventoSeguridadRepository(session)
+
+
+async def get_cambio_password_uow(
+    session: AsyncSession = Depends(get_session),
+) -> CambioPasswordUnitOfWork:
+    return CambioPasswordUnitOfWork(session)

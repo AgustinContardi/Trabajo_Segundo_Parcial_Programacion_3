@@ -10,6 +10,8 @@ from app.core.dependencies import IdentidadActual, get_sesion_actual
 from app.core.security import clear_access_token_cookie, set_access_token_cookie
 from app.modules.usuarios import service
 from app.modules.usuarios.schemas import (
+    CambiarPasswordRequest,
+    CambiarPasswordResponse,
     LoginRequest,
     LoginResponse,
     UsuarioCreate,
@@ -17,8 +19,10 @@ from app.modules.usuarios.schemas import (
     YoResponse,
 )
 from app.modules.usuarios.unit_of_work import (
+    CambioPasswordUnitOfWork,
     RegistroUnitOfWork,
     UsuariosUnitOfWork,
+    get_cambio_password_uow,
     get_registro_uow,
     get_usuarios_uow,
 )
@@ -102,3 +106,27 @@ async def yo(
         roles=list(sesion.roles_db),
         roles_token=list(sesion.roles_token),
     )
+
+
+@router.post("/cambiar-password", response_model=CambiarPasswordResponse)
+async def cambiar_password_endpoint(
+    data: CambiarPasswordRequest,
+    request: Request,
+    sesion: IdentidadActual = Depends(get_sesion_actual),
+    uow: CambioPasswordUnitOfWork = Depends(get_cambio_password_uow),
+) -> CambiarPasswordResponse:
+    """Cambia la contraseña del usuario autenticado.
+
+    Vive en el grupo abierto (exige sesión, RN-06) pero no lleva el control de
+    cambio obligatorio: es la salida del estado `debe_cambiar_password = true`.
+    No emite token nuevo ni rota la cookie (IN-03, DD-07).
+    """
+    await service.cambiar_password(
+        uow,
+        email=sesion.usuario.email,
+        password_actual=data.password_actual,
+        password_nueva=data.password_nueva,
+        settings=request.app.state.settings,
+        semaphore=request.app.state.bcrypt_sem,
+    )
+    return CambiarPasswordResponse(mensaje="Contraseña actualizada")

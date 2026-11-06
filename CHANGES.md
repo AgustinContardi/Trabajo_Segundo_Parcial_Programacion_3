@@ -625,7 +625,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-14] cambio-password-grupos-de-rutas
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — implementado y verificado contra PostgreSQL 17 real (172 passed / 0 errors vs baseline 151/0); dos grupos de rutas en main.py, control de cambio obligatorio, cambio de password sin rotar cookie, EventoSeguridadRepository (2026-11-06)
 - **Scope**:
   - `main.py` con **dos grupos de rutas**: abierto (`/health`, `/auth`, catálogo público) y protegido
     (todo lo demás), con el control del cambio obligatorio montado **una sola vez** a nivel del router

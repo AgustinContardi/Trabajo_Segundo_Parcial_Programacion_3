@@ -17,9 +17,18 @@ from app.core.config import Settings
 from app.core.errors import traducir_integrity_error
 from app.core.security import create_access_token, hash_password, verify_password
 from app.modules.clientes.models import Cliente
-from app.modules.usuarios.models import AsignacionRol, IntentoAcceso, Usuario
+from app.modules.usuarios.models import (
+    AsignacionRol,
+    EventoSeguridad,
+    IntentoAcceso,
+    Usuario,
+)
 from app.modules.usuarios.schemas import UsuarioCreate
-from app.modules.usuarios.unit_of_work import RegistroUnitOfWork, UsuariosUnitOfWork
+from app.modules.usuarios.unit_of_work import (
+    CambioPasswordUnitOfWork,
+    RegistroUnitOfWork,
+    UsuariosUnitOfWork,
+)
 
 _CREDENCIALES_INVALIDAS = "Credenciales inválidas"
 _DEMASIADOS_INTENTOS = "Demasiados intentos de inicio de sesión"
@@ -222,3 +231,49 @@ async def registrar(
         raise traducir_integrity_error(exc) from exc
 
     return usuario
+
+
+async def cambiar_password(
+    uow: CambioPasswordUnitOfWork,
+    *,
+    email: str,
+    password_actual: str,
+    password_nueva: str,
+    settings: Settings,
+    semaphore,
+) -> None:
+    """Cambio de contraseña atómico (RN-16).
+
+    1. Lee el usuario en un UoW corto de lectura.
+    2. Verifica la contraseña actual y hashea la nueva **fuera** del UoW
+       (bcrypt en to_thread + semáforo), para no retener una conexión del pool.
+    3. Dentro de un solo `async with uow`: password_hash,
+       debe_cambiar_password = False y una línea de evento_seguridad
+       (actor = email). Las tres escrituras se confirman o revierten juntas.
+    """
+    # 1. Lectura corta: obtener el hash almacenado.
+    async with uow:
+        usuario = await uow.usuarios.get_by_email(email)
+    if usuario is None:
+        raise HTTPException(status_code=401, detail=_CREDENCIALES_INVALIDAS)
+
+    # 2. Verificar contraseña actual fuera del UoW (no es login, no escribe
+    #    intento_acceso).
+    if not await verify_password(password_actual, usuario.password_hash, semaphore):
+        raise HTTPException(status_code=401, detail=_CREDENCIALES_INVALIDAS)
+
+    # 3. Hashear nueva contraseña fuera del UoW.
+    password_hash = await hash_password(
+        password_nueva,
+        rounds=settings.BCRYPT_ROUNDS,
+        semaphore=semaphore,
+    )
+
+    # 4. Tres escrituras en una sola transacción.
+    async with uow:
+        usuario = await uow.usuarios.get_by_email(email)
+        usuario.password_hash = password_hash
+        usuario.debe_cambiar_password = False
+        await uow.eventos.add(
+            EventoSeguridad(actor=email, accion="Cambio de contraseña")
+        )
