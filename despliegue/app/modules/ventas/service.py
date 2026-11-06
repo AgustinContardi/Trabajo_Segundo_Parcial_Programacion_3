@@ -1,6 +1,5 @@
 """Lógica de negocio del módulo `ventas` (TP cap. 1-4)."""
 
-import asyncio
 import logging
 from decimal import Decimal
 from typing import List, Optional
@@ -96,8 +95,3 @@ async def ventas_de_cliente(session: AsyncSession, cliente_id: int) -> List[Vent
     stmt = select(Venta).where(Venta.cliente_id == cliente_id)
     result = await session.execute(stmt)
     return list(result.scalars().all())
-
-
-async def aviso_comprobante(venta_id: int) -> None:
-    await asyncio.sleep(0.5)
-    logger.info("Comprobante de venta %s enviado al cliente", venta_id)

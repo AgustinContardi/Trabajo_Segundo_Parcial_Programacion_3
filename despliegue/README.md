@@ -1,9 +1,8 @@
-# Parcial «la librería» — capítulos 1 a 6
+# Parcial «la librería» — TP capítulos 1 a 4
 
-API para la gestión de una librería: catálogo, clientes, ventas, stock y acceso
-con roles. Este directorio es el proyecto que se entrega en el repositorio; el
-TP de los capítulos 1 a 4 se adopta como base y se conserva sin reescribir su
-lógica.
+API para la gestión de una librería: catálogo, clientes y ventas.
+Este directorio es el proyecto que se entrega en el repositorio; el TP de los
+capítulos 1 a 4 se adopta como base y se conserva sin reescribir su lógica.
 
 ## Integrantes
 
@@ -21,7 +20,7 @@ lógica.
 
 ## Puesta en marcha desde cero
 
-Todos los comandos se corren **dentro de `parcial/`**.
+Todos los comandos se corren **dentro de `despliegue/`**.
 
 1. Crear y activar el entorno virtual:
 
@@ -42,23 +41,14 @@ Todos los comandos se corren **dentro de `parcial/`**.
    Copy-Item env.example .env
    ```
 
-   Editar `.env` con el usuario, la contraseña, la base, el host y el puerto de
-   PostgreSQL. Generar una clave de firma propia, por ejemplo:
-
-   ```powershell
-   python -c "import secrets; print(secrets.token_urlsafe(48))"
-   ```
-
-   y pegarla en `JWT_SECRET`. El `.env` **no** se versiona.
+   Editar `.env` con el usuario, la contraseña, la base, el host y el puerto
+   de PostgreSQL.
 
 4. Aplicar las migraciones sobre la base vacía:
 
    ```powershell
    alembic upgrade head
    ```
-
-   (Con este change todavía no hay migraciones propias: el historial queda
-   vacío. Las del TP cap. 1-4 se incorporan al desbloquear el baseline.)
 
 5. Levantar la API:
 

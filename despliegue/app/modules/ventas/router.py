@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
@@ -17,13 +17,11 @@ router = APIRouter(prefix="/ventas", tags=["ventas"])
 @router.post("/", response_model=VentaDetailRead, status_code=201)
 async def crear_venta(
     data: VentaCreate,
-    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
     venta = await service.crear(session, data.cliente_id, data.renglones)
     await session.commit()
     venta = await service.obtener(session, venta.id)
-    background_tasks.add_task(service.aviso_comprobante, venta.id)
     # build response
     cliente = venta.cliente
     renglones = []
