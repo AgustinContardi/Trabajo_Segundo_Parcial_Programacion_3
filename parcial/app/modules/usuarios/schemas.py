@@ -1,6 +1,7 @@
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Annotated, Optional, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, AfterValidator, field_validator
 
 from app.core.errors import SinNulMixin, validar_password_bytes
 
@@ -12,6 +13,17 @@ def _normalizar_email(value: str) -> str:
     el valor guardado y el buscado coincidan; no es una regla de negocio nueva.
     """
     return value.strip().lower()
+
+
+def _fecha_con_zona(value: datetime) -> datetime:
+    """Rechaza datetimes sin zona horaria (tipo `AwareDatetime`)."""
+    if value.tzinfo is None:
+        raise ValueError("La fecha y hora debe incluir zona horaria")
+    return value
+
+
+# Fecha y hora obligatoriamente con zona horaria (timestamptz). Nunca naive.
+AwareDatetime = Annotated[datetime, AfterValidator(_fecha_con_zona)]
 
 
 class UsuarioCreate(BaseModel, SinNulMixin):
@@ -105,3 +117,61 @@ class CambiarPasswordResponse(BaseModel):
     """Respuesta de cambio de contraseña: solo mensaje, sin token ni cookie nueva."""
 
     mensaje: str
+
+
+class PersonalCreate(BaseModel, SinNulMixin):
+    """Alta de personal: email, nombre, password y rol inicial (ADMIN o VENDEDOR)."""
+
+    model_config = ConfigDict(extra="forbid")
+    email: str
+    nombre: str
+    password: str
+    rol: Literal["ADMIN", "VENDEDOR"]
+
+    @field_validator("email")
+    @classmethod
+    def _email_normalizado(cls, value: str) -> str:
+        return _normalizar_email(value)
+
+    @field_validator("password")
+    @classmethod
+    def _password_bytes(cls, value: str) -> str:
+        return validar_password_bytes(value)  # type: ignore[return-value]
+
+
+class AsignacionRolCreate(BaseModel, SinNulMixin):
+    """Otorgar un rol: rol (ADMIN/VENDEDOR/CLIENTE) y vence_en opcional con zona y futuro."""
+
+    model_config = ConfigDict(extra="forbid")
+    rol: Literal["ADMIN", "VENDEDOR", "CLIENTE"]
+    vence_en: AwareDatetime | None = None
+
+    @field_validator("vence_en")
+    @classmethod
+    def _vence_en_futuro(cls, value: AwareDatetime | None) -> AwareDatetime | None:
+        if value is not None and value <= datetime.now(timezone.utc):
+            raise ValueError("La fecha de vencimiento debe estar en el futuro")
+        return value
+
+
+class AsignacionRolRead(BaseModel, SinNulMixin):
+    """Historial de una asignación de rol (vigente, vencida o revocada)."""
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    id: int
+    usuario_id: int
+    rol: str
+    desde: datetime
+    vence_en: datetime | None = None
+    revocada_en: datetime | None = None
+    otorgada_por: int | None = None
+
+
+class EventoSeguridadRead(BaseModel, SinNulMixin):
+    """Línea de auditoría de evento de seguridad."""
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    id: int
+    cuando: datetime
+    actor: str
+    accion: str

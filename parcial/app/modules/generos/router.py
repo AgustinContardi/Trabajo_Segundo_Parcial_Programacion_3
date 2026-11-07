@@ -9,11 +9,12 @@ from app.modules.libros import service as libros_service
 from app.modules.libros.schemas import LibroRead
 
 router = APIRouter(prefix="/generos", tags=["generos"])
+router_admin = APIRouter(prefix="/generos", tags=["generos"])
 
 _solo_admin = requiere_rol("ADMIN")
 
 
-@router.post("/", response_model=GeneroRead, status_code=201)
+@router_admin.post("/", response_model=GeneroRead, status_code=201)
 async def crear_genero(
     data: GeneroCreate,
     _sesion: IdentidadActual = Depends(_solo_admin),

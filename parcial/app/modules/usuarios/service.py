@@ -277,3 +277,149 @@ async def cambiar_password(
         await uow.eventos.add(
             EventoSeguridad(actor=email, accion="Cambio de contraseña")
         )
+
+
+async def alta_personal(
+    uow,
+    data,
+    *,
+    admin,
+    settings: Settings,
+    semaphore,
+) -> Usuario:
+    """Alta atómica de personal (RN-02 adaptado, SU-02, RN-16).
+
+    1. Hashea la contraseña **antes** de abrir el UoW (bcrypt en to_thread +
+       semáforo), para no retener una conexión del pool.
+    2. Dentro de un solo `async with uow`: `usuario` con
+       `debe_cambiar_password = true`, `asignacion_rol` inicial con
+       `otorgada_por = admin.id` y una línea de `evento_seguridad` con
+       `actor = admin.email` y `accion = "Alta de personal"`.
+    3. Cualquier fallo revierte las tres escrituras (el `except` va fuera del
+       bloque para que `__aexit__` haga `rollback()`).
+    """
+    password_hash = await hash_password(
+        data.password,
+        rounds=settings.BCRYPT_ROUNDS,
+        semaphore=semaphore,
+    )
+
+    try:
+        async with uow:
+            usuario = await uow.usuarios.add(
+                Usuario(
+                    email=data.email,
+                    nombre=data.nombre,
+                    password_hash=password_hash,
+                    debe_cambiar_password=True,
+                )
+            )
+            await uow.roles.add(
+                AsignacionRol(
+                    usuario_id=usuario.id,
+                    rol=data.rol,
+                    desde=datetime.now(timezone.utc),
+                    otorgada_por=admin.id,
+                )
+            )
+            await uow.eventos.add(
+                EventoSeguridad(actor=admin.email, accion="Alta de personal")
+            )
+    except IntegrityError as exc:
+        raise traducir_integrity_error(exc) from exc
+
+    return usuario
+
+
+_USUARIO_NO_EXISTE = "El usuario indicado no existe"
+_ROL_YA_ABIERTO = "El usuario ya tiene una asignación abierta de ese rol"
+_ROL_NO_ASIGNADO = "El usuario no tiene ese rol asignado"
+_ROL_YA_REVOCADO = "Ese rol ya está revocado para ese usuario"
+_NO_PUEDE_PROPIO_ADMIN = "No puede revocar su propio rol de administrador"
+_ULTIMO_ADMIN = "No se puede revocar el último administrador vigente"
+
+
+async def asignar_rol(uow, usuario_id, data, *, admin) -> AsignacionRol:
+    """Otorgar un rol con vigencia opcional.
+
+    Orden: `404` (usuario inexistente) → `409` (asignación abierta vigente del
+    mismo rol) → si existe pero vencida, `cerrar` + `flush` y `abrir` nueva en
+    la misma transacción → `abrir`. Siempre escribe una línea de evento.
+    """
+    try:
+        async with uow:
+            usuario = await uow.usuarios.get_by_id(usuario_id)
+            if usuario is None:
+                raise HTTPException(status_code=404, detail=_USUARIO_NO_EXISTE)
+
+            abierta = await uow.roles.get_abierta(usuario_id, data.rol)
+            if abierta is not None and abierta.vigente:
+                raise HTTPException(status_code=409, detail=_ROL_YA_ABIERTO)
+
+            if abierta is not None and not abierta.vigente:
+                # Reasignar rol vencido: cierra la fila anterior y abre la nueva.
+                await uow.roles.cerrar(abierta.asignacion)
+
+            asignacion = await uow.roles.abrir(
+                usuario_id,
+                data.rol,
+                vence_en=data.vence_en,
+                otorgada_por=admin.id,
+            )
+            await uow.eventos.add(
+                EventoSeguridad(actor=admin.email, accion=f"Asignación de rol: {data.rol}")
+            )
+            return asignacion
+    except IntegrityError as exc:
+        raise traducir_integrity_error(exc) from exc
+
+
+async def revocar_rol(uow, usuario_id, rol: str, *, admin) -> AsignacionRol:
+    """Revocar un rol escribiendo `revocada_en` (nunca borra la fila).
+
+    Orden (`CV-08`): `404` (usuario inexistente) → `404` (rol nunca asignado)
+    / `409` (fila ya revocada) → `409` (autoprotección propio ADMIN) →
+    `409` (último ADMIN vigente) → escritura.
+    """
+    try:
+        async with uow:
+            usuario = await uow.usuarios.get_by_id(usuario_id)
+            if usuario is None:
+                raise HTTPException(status_code=404, detail=_USUARIO_NO_EXISTE)
+
+            abierta = await uow.roles.get_abierta(usuario_id, rol)
+            if abierta is None:
+                filas = await uow.roles.listar_por_usuario(usuario_id)
+                if not any(f.rol == rol for f in filas):
+                    raise HTTPException(status_code=404, detail=_ROL_NO_ASIGNADO)
+                raise HTTPException(status_code=409, detail=_ROL_YA_REVOCADO)
+
+            asignacion = abierta.asignacion
+
+            if usuario_id == admin.id and rol == "ADMIN":
+                raise HTTPException(status_code=409, detail=_NO_PUEDE_PROPIO_ADMIN)
+
+            if rol == "ADMIN" and abierta.vigente:
+                # Solo una asignación ADMIN vigente reduce el conteo de administradores.
+                # Revocar una ya vencida no deja al sistema sin administradores.
+                if await uow.roles.contar_admins_vigentes(
+                    excluir_id=asignacion.id, bloquear=True
+                ) == 0:
+                    raise HTTPException(status_code=409, detail=_ULTIMO_ADMIN)
+
+            await uow.roles.cerrar(asignacion)
+            await uow.eventos.add(
+                EventoSeguridad(actor=admin.email, accion=f"Revocación de rol: {rol}")
+            )
+            return asignacion
+    except IntegrityError as exc:
+        raise traducir_integrity_error(exc) from exc
+
+
+async def listar_roles(uow, usuario_id) -> list[AsignacionRol]:
+    """Historial completo de roles de un usuario: vigentes, vencidas y revocadas,
+    ordenadas `desde DESC, id DESC`. `404` si el usuario no existe."""
+    usuario = await uow.usuarios.get_by_id(usuario_id)
+    if usuario is None:
+        raise HTTPException(status_code=404, detail=_USUARIO_NO_EXISTE)
+    return await uow.roles.listar_por_usuario(usuario_id)

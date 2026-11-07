@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlalchemy import func, or_, select
 
-from app.core.paginacion import paginar
+from app.core.paginacion import Pagina, paginar
 from app.core.repository import BaseRepository
 from app.modules.usuarios.models import (
     AsignacionRol,
@@ -23,6 +23,14 @@ from app.modules.usuarios.models import (
 
 # Corte inferior del conteo cuando el par email/IP nunca inició sesión.
 _EPOCA = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+@dataclass(frozen=True)
+class AbiertaRol:
+    """Asignación abierta de un rol y si aún está vigente según `now()` de la base."""
+
+    asignacion: AsignacionRol
+    vigente: bool
 
 
 @dataclass(frozen=True)
@@ -64,10 +72,105 @@ class UsuarioRepository(BaseRepository[Usuario]):
 
 
 class AsignacionRolRepository(BaseRepository[AsignacionRol]):
-    """Roles del usuario; el alta sólo usa `add()` heredado (`flush()`, CV-02)."""
+    """Roles del usuario; alta (`abrir`) y cierre (`cerrar`) sólo `flush()` (CV-02)."""
 
     def __init__(self, session: Any) -> None:
         super().__init__(session, AsignacionRol)
+
+    async def get_abierta(self, usuario_id: int, rol: str) -> AbiertaRol | None:
+        """La fila abierta (`revocada_en IS NULL`) del usuario para ese rol.
+
+        `vigente` se calcula en SQL con el reloj de PostgreSQL:
+        `vence_en IS NULL OR vence_en > now()`.
+        """
+        vigente_expr = (
+            (AsignacionRol.vence_en.is_(None))
+            | (AsignacionRol.vence_en > func.now())
+        ).label("vigente")
+        stmt = (
+            select(AsignacionRol, vigente_expr)
+            .where(
+                AsignacionRol.usuario_id == usuario_id,
+                AsignacionRol.rol == rol,
+                AsignacionRol.revocada_en.is_(None),
+            )
+        )
+        result = await self._session.execute(stmt)
+        row = result.first()
+        if row is None:
+            return None
+        return AbiertaRol(asignacion=row[0], vigente=bool(row[1]))
+
+    async def listar_por_usuario(self, usuario_id: int) -> list[AsignacionRol]:
+        """Todas las asignaciones del usuario, vigentes, vencidas y revocadas,
+        ordenadas `desde DESC, id DESC`."""
+        stmt = (
+            select(AsignacionRol)
+            .where(AsignacionRol.usuario_id == usuario_id)
+            .order_by(AsignacionRol.desde.desc(), AsignacionRol.id.desc())
+        )
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def contar_admins_vigentes(
+        self, excluir_id: int | None = None, bloquear: bool = False
+    ) -> int:
+        """Cuenta asignaciones `ADMIN` vigentes (`revocada_en IS NULL` y no
+        vencidas al `now()` de la base).
+
+        Con `bloquear=True` emite `SELECT ... FOR UPDATE` sobre **todas** las
+        filas vigentes (para serializar revocaciones concurrentes de `ADMIN`);
+        la exclusión del objetivo se hace en memoria (§3 del design de C-15).
+        Nunca hace `commit()` (CV-02).
+        """
+        stmt = (
+            select(AsignacionRol)
+            .where(
+                AsignacionRol.rol == "ADMIN",
+                AsignacionRol.revocada_en.is_(None),
+                or_(
+                    AsignacionRol.vence_en.is_(None),
+                    AsignacionRol.vence_en > func.now(),
+                ),
+            )
+        )
+        if bloquear:
+            stmt = stmt.with_for_update()
+        result = await self._session.execute(stmt)
+        filas = list(result.scalars().all())
+        if excluir_id is not None:
+            filas = [f for f in filas if f.id != excluir_id]
+        return len(filas)
+
+    async def cerrar(
+        self, asignacion: AsignacionRol, cuando: datetime | None = None
+    ) -> None:
+        """Escribe `revocada_en` (default `now()` del servidor) y hace `flush()`.
+        Nunca borra la fila (SU-12).
+        """
+        asignacion.revocada_en = cuando or datetime.now(timezone.utc)
+        await self._session.flush()
+
+    async def abrir(
+        self,
+        usuario_id: int,
+        rol: str,
+        *,
+        vence_en: datetime | None = None,
+        otorgada_por: int | None = None,
+    ) -> AsignacionRol:
+        """Crea una asignación abierta y hace `flush()` (CV-02)."""
+        asignacion = AsignacionRol(
+            usuario_id=usuario_id,
+            rol=rol,
+            desde=datetime.now(timezone.utc),
+            vence_en=vence_en,
+            revocada_en=None,
+            otorgada_por=otorgada_por,
+        )
+        self._session.add(asignacion)
+        await self._session.flush()
+        return asignacion
 
 
 class IntentoAccesoRepository(BaseRepository[IntentoAcceso]):

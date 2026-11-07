@@ -16,7 +16,7 @@ from typing import Any, Awaitable, Callable
 import httpx
 import pytest
 import pytest_asyncio
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings, get_settings
@@ -166,7 +166,12 @@ async def usuario_factory(
         )
         if ids:
             await session.execute(
-                delete(AsignacionRol).where(AsignacionRol.usuario_id.in_(ids))
+                delete(AsignacionRol).where(
+                    or_(
+                        AsignacionRol.usuario_id.in_(ids),
+                        AsignacionRol.otorgada_por.in_(ids),
+                    )
+                )
             )
         await session.execute(
             delete(IntentoAcceso).where(IntentoAcceso.email.in_(emails))

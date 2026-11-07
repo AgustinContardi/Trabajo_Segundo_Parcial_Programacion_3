@@ -64,3 +64,23 @@ async def get_cambio_password_uow(
     session: AsyncSession = Depends(get_session),
 ) -> CambioPasswordUnitOfWork:
     return CambioPasswordUnitOfWork(session)
+
+
+class AdminUnitOfWork(UnitOfWork):
+    """Compone usuarios, roles y eventos sobre una única sesión y transacción.
+
+    Las tres escrituras de C-15 (alta de personal, asignación/revocación de
+    roles y auditoría de eventos) comparten el mismo UoW (RN-16, CV-01).
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(session)
+        self.usuarios = UsuarioRepository(session)
+        self.roles = AsignacionRolRepository(session)
+        self.eventos = EventoSeguridadRepository(session)
+
+
+async def get_admin_uow(
+    session: AsyncSession = Depends(get_session),
+) -> AdminUnitOfWork:
+    return AdminUnitOfWork(session)

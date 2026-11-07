@@ -16,11 +16,12 @@ from app.modules.libros.schemas import (
 from app.modules.libros.unit_of_work import LibrosUnitOfWork, get_libros_uow
 
 router = APIRouter(prefix="/libros", tags=["libros"])
+router_admin = APIRouter(prefix="/libros", tags=["libros"])
 
 _solo_admin = requiere_rol("ADMIN")
 
 
-@router.post("/", response_model=LibroDetailRead, status_code=201)
+@router_admin.post("/", response_model=LibroDetailRead, status_code=201)
 async def crear_libro(
     data: LibroCreate,
     _sesion: IdentidadActual = Depends(_solo_admin),
@@ -58,7 +59,7 @@ async def obtener_libro(
     return await service.to_detail_read(libro)
 
 
-@router.patch("/{libro_id}", response_model=LibroDetailRead)
+@router_admin.patch("/{libro_id}", response_model=LibroDetailRead)
 async def actualizar_libro(
     libro_id: int,
     data: LibroUpdate,
@@ -70,7 +71,7 @@ async def actualizar_libro(
     return await service.to_detail_read(libro)
 
 
-@router.delete("/{libro_id}", status_code=204)
+@router_admin.delete("/{libro_id}", status_code=204)
 async def dar_de_baja_libro(
     libro_id: int,
     _sesion: IdentidadActual = Depends(_solo_admin),
@@ -80,7 +81,7 @@ async def dar_de_baja_libro(
     return None
 
 
-@router.post("/{libro_id}/reponer", response_model=LibroDetailRead)
+@router_admin.post("/{libro_id}/reponer", response_model=LibroDetailRead)
 async def reponer_libro(
     libro_id: int,
     data: ReponerCreate,
@@ -92,7 +93,7 @@ async def reponer_libro(
     return await service.to_detail_read(libro)
 
 
-@router.get("/{libro_id}/movimientos", response_model=list[MovimientoStockRead])
+@router_admin.get("/{libro_id}/movimientos", response_model=list[MovimientoStockRead])
 async def movimientos_libro(
     libro_id: int,
     _sesion: IdentidadActual = Depends(_solo_admin),

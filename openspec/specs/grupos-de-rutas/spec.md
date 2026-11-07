@@ -8,7 +8,7 @@ Define los dos grupos de rutas de `main.py` (abierto y protegido), el control de
 
 ### Requirement: Dos grupos de rutas en main.py
 
-El sistema SHALL montar en `main.py` un grupo abierto (`/health`, `/auth`, catálogo público) y un grupo protegido (todo lo demás), de modo que el control del cambio obligatorio se aplique solo al protegido.
+El sistema SHALL montar en `main.py` un grupo abierto (`/health`, `/auth` y las **lecturas** públicas del catálogo) y un grupo protegido (todo lo demás: clientes, ventas, **las mutaciones de catálogo** y la superficie de administración de usuarios, roles y eventos), de modo que el control del cambio obligatorio se aplique solo al protegido.
 
 #### Scenario: main.py tiene dos bloques de include_router
 
@@ -65,3 +65,12 @@ El sistema SHALL proporcionar en el módulo `usuarios` un `EventoSeguridadReposi
 
 - **WHEN** no hay filas en `evento_seguridad`
 - **THEN** la respuesta tiene `items` vacío, `total = 0` y `pages = 1`
+
+### Requirement: La separación no cambia los contratos del catálogo
+
+Mover los routers de administración del catálogo al grupo protegido SHALL NOT cambiar el path, el método, el cuerpo ni la respuesta de ninguna ruta existente; solo SHALL agregar la puerta del cambio obligatorio.
+
+#### Scenario: El contrato de las rutas de catálogo no cambia
+
+- **WHEN** se comparan los paths y métodos del catálogo antes y después de la separación
+- **THEN** la lista es idéntica y las únicas diferencias observables son `403` por cambio de contraseña pendiente o por falta de sesión en las mutaciones

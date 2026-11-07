@@ -9,11 +9,12 @@ from app.modules.libros import service as libros_service
 from app.modules.libros.schemas import LibroRead
 
 router = APIRouter(prefix="/editoriales", tags=["editoriales"])
+router_admin = APIRouter(prefix="/editoriales", tags=["editoriales"])
 
 _solo_admin = requiere_rol("ADMIN")
 
 
-@router.post("/", response_model=EditorialRead, status_code=201)
+@router_admin.post("/", response_model=EditorialRead, status_code=201)
 async def crear_editorial(
     data: EditorialCreate,
     _sesion: IdentidadActual = Depends(_solo_admin),
@@ -38,7 +39,7 @@ async def obtener_editorial(
     return await service.obtener(uow, editorial_id)
 
 
-@router.patch("/{editorial_id}", response_model=EditorialRead)
+@router_admin.patch("/{editorial_id}", response_model=EditorialRead)
 async def actualizar_editorial(
     editorial_id: int,
     data: EditorialUpdate,
