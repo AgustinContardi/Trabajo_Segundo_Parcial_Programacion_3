@@ -699,7 +699,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-16] venta-transaccional
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — implementado y verificado contra PostgreSQL 17 real (325 passed / 0 errors vs baseline 304/0); `POST /ventas` atómico con stock, renglones, movimientos y `BackgroundTasks` (2026-11-07)
 - **Scope**:
   - `VentaCreate` con **sólo** `cliente_id` y `renglones: [{libro_id, cantidad}]`, `extra="forbid"`:
     mandar `precio`, `total` o `fecha` → **422**; cero renglones o `libro_id` repetido → **422**.

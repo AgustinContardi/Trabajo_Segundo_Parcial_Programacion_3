@@ -55,6 +55,19 @@ class LibroRepository(SoftDeleteRepository[Libro]):
         result = await self._session.execute(stmt)
         return list(result.unique().scalars().all())
 
+    async def get_by_ids(self, ids: list[int]) -> list[Libro]:
+        """Obtiene varios libros de un golpe para evitar N consultas.
+
+        No filtra por `borrado_en`: el servicio decide si un libro dado de baja
+        es aceptable o no. Devuelve sólo los libros que existen (los ids
+        repetidos se colapsan porque la consulta es por `IN`).
+        """
+        if not ids:
+            return []
+        stmt = select(Libro).where(Libro.id.in_(ids))
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
     async def add_autoria(
         self, libro_id: int, autor_id: int, rol: str, orden: int
     ) -> LibroAutor:

@@ -14,6 +14,11 @@ from app.core.repository import BaseRepository
 from app.modules.ventas.models import RenglonVenta, Venta
 
 
+class RenglonVentaRepository(BaseRepository[RenglonVenta]):
+    def __init__(self, session: Any) -> None:
+        super().__init__(session, RenglonVenta)
+
+
 class VentaRepository(BaseRepository[Venta]):
     def __init__(self, session: Any) -> None:
         super().__init__(session, Venta)

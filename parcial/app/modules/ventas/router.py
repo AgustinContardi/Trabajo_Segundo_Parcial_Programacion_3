@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from app.core.dependencies import (
     IdentidadActual,
@@ -10,6 +10,7 @@ from app.modules.ventas import service
 from app.modules.ventas.schemas import (
     ClienteRef,
     RenglonRead,
+    VentaCreate,
     VentaDetailRead,
     VentaRead,
 )
@@ -108,4 +109,23 @@ async def obtener_venta(
     uow: VentasUnitOfWork = Depends(get_ventas_uow),
 ):
     venta = await service.obtener(uow, venta_id, actual=sesion)
+    return _to_detail(venta)
+
+
+@router.post("/", response_model=VentaDetailRead, status_code=201)
+async def crear_venta(
+    dto: VentaCreate,
+    background_tasks: BackgroundTasks,
+    uow: VentasUnitOfWork = Depends(get_ventas_uow),
+    actual: IdentidadActual = Depends(requiere_rol("VENDEDOR", "ADMIN")),
+):
+    """Registra una venta nueva de forma atómica.
+
+    El router sólo construye el UoW (vía dependencia), delega la autorización
+    a `requiere_rol` y la escritura al servicio. No hay lógica de negocio aquí
+    ni se abre ninguna transacción (CV-01, CV-05). Tras el commit se agenda
+    el aviso del comprobante como tarea de fondo.
+    """
+    venta = await service.registrar_venta(uow, dto, actual)
+    background_tasks.add_task(service.avisar_comprobante, venta.id)
     return _to_detail(venta)

@@ -6,7 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.core.unit_of_work import UnitOfWork
 from app.modules.clientes.repository import ClienteRepository
-from app.modules.ventas.repository import VentaRepository
+from app.modules.libros.models import Libro
+from app.modules.libros.repository import LibroRepository
+from app.modules.ventas.models import RenglonVenta
+from app.modules.ventas.repository import RenglonVentaRepository, VentaRepository
 
 
 class VentasUnitOfWork(UnitOfWork):
@@ -14,6 +17,8 @@ class VentasUnitOfWork(UnitOfWork):
         super().__init__(session)
         self.ventas = VentaRepository(session)
         self.clientes = ClienteRepository(session)
+        self.libros = LibroRepository(session)
+        self.renglones = RenglonVentaRepository(session)
 
 
 async def get_ventas_uow(
