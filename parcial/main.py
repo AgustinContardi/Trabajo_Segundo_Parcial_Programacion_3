@@ -17,8 +17,8 @@ Contrato de este módulo:
   llevan índice, el dinero es `NUMERIC`/`Decimal` y las fechas nuevas
   `timestamptz`. El token viaja sólo en la cookie `access_token` (`C-11`).
 
-En este change sólo se monta el grupo **abierto** con `health`; el grupo
-protegido necesita autenticación y llega con `C-11`.
+En este change se monta el grupo **abierto** con health y catálogo público,
+y el grupo **protegido** con control de cambio obligatorio (`C-15`, `RN-06`).
 """
 
 import asyncio
@@ -108,7 +108,7 @@ router_abierto.include_router(libros_router)
 app.include_router(router_abierto)
 
 # --- Grupo protegido: control de cambio obligatorio montado UNA SOLA VEZ ---
-# clientes, ventas (todo lo demás). /auth/* y el catálogo público quedan exentos.
+# clientes, ventas y catálogo (mutaciones ADMIN). /auth/* queda exento.
 router_protegido = APIRouter(dependencies=[Depends(control_cambio_password)])
 
 from app.modules.clientes.router import router as clientes_router
@@ -116,5 +116,22 @@ from app.modules.ventas.router import router as ventas_router
 
 router_protegido.include_router(clientes_router)
 router_protegido.include_router(ventas_router)
+
+# Import both routers from each catalog module: router (lecturas) and router_admin (mutaciones)
+from app.modules.editoriales.router import router as editoriales_router, router_admin as editoriales_router_admin
+from app.modules.generos.router import router as generos_router, router_admin as generos_router_admin
+from app.modules.autores.router import router as autores_router, router_admin as autores_router_admin
+from app.modules.libros.router import router as libros_router, router_admin as libros_router_admin
+
+router_protegido.include_router(editoriales_router)
+router_protegido.include_router(generos_router)
+router_protegido.include_router(autores_router)
+router_protegido.include_router(libros_router)
+
+# Include admin routers for catalog mutations (under change C-15, RN-06)
+router_protegido.include_router(editoriales_router_admin)
+router_protegido.include_router(generos_router_admin)
+router_protegido.include_router(autores_router_admin)
+router_protegido.include_router(libros_router_admin)
 
 app.include_router(router_protegido)
