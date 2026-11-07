@@ -117,21 +117,4 @@ from app.modules.ventas.router import router as ventas_router
 router_protegido.include_router(clientes_router)
 router_protegido.include_router(ventas_router)
 
-# Import both routers from each catalog module: router (lecturas) and router_admin (mutaciones)
-from app.modules.editoriales.router import router as editoriales_router, router_admin as editoriales_router_admin
-from app.modules.generos.router import router as generos_router, router_admin as generos_router_admin
-from app.modules.autores.router import router as autores_router, router_admin as autores_router_admin
-from app.modules.libros.router import router as libros_router, router_admin as libros_router_admin
-
-router_protegido.include_router(editoriales_router)
-router_protegido.include_router(generos_router)
-router_protegido.include_router(autores_router)
-router_protegido.include_router(libros_router)
-
-# Include admin routers for catalog mutations (under change C-15, RN-06)
-router_protegido.include_router(editoriales_router_admin)
-router_protegido.include_router(generos_router_admin)
-router_protegido.include_router(autores_router_admin)
-router_protegido.include_router(libros_router_admin)
-
 app.include_router(router_protegido)
