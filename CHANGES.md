@@ -659,7 +659,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-15] admin-usuarios-roles-eventos
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — implementado y verificado contra PostgreSQL 17.11 real (417 passed / 0 errors vs baseline 413, **+4 tests de verificación**, sin cambios de producción); rutas `POST /usuarios`, `GET|POST /usuarios/{id}/roles`, `DELETE /usuarios/{id}/roles/{rol}` y `GET /eventos` en el grupo protegido, y mutaciones de catálogo bajo `control_cambio_password` (2026-11-07). Change archivado en `openspec/changes/archive/2026-11-07-c-15-admin-usuarios-roles-eventos/` (38/38 tareas, `openspec validate --archived --strict` OK). La auditoría agregó tests para las tareas 3.5, 5.6, 6.5 y la aceptación §7 que estaban `[x]` sin evidencia; no se encontraron defectos funcionales.
 - **Scope**:
   - `POST /usuarios` (ADMIN) → **201**: alta de personal con contraseña provisoria (hash antes de la
     transacción), `debe_cambiar_password = true`, rol inicial ADMIN o VENDEDOR (`SU-02`) y línea de
