@@ -29,9 +29,33 @@ Define el registro atómico de una venta: una sola transacción que escribe la v
 - **WHEN** el cuerpo incluye un campo distinto de `cliente_id` y `renglones`
 - **THEN** la respuesta es `422` y no se escribe ninguna fila
 
+### Requirement: Los enteros de entrada son estrictos y acotados a sus columnas
+
+`cliente_id` y `libro_id` SHALL ser enteros positivos y estrictos, acotados a `BIGINT` (`<= 9223372036854775807`); `cantidad` SHALL ser un entero positivo estricto acotado a la columna (`<= 2147483647`). Booleanos, strings, floats y valores fuera de rango SHALL responder `422` con mensaje en español y sin escribir filas (`RN-09`, `RN-15`, `docs/CHECKLIST_ENTREGA.md` §8).
+
+#### Scenario: ID fuera del rango BIGINT
+
+- **WHEN** `cliente_id` o `libro_id` es `10**30` o supera `9223372036854775807`
+- **THEN** la respuesta es `422` en español, nunca `500`, y no se escribe ninguna fila
+
+#### Scenario: Cantidad booleana
+
+- **WHEN** `cantidad` es `true` o `false`
+- **THEN** la respuesta es `422` y no se escribe ninguna fila
+
+#### Scenario: ID o cantidad no entera
+
+- **WHEN** `cliente_id`, `libro_id` o `cantidad` llega como string o float
+- **THEN** la respuesta es `422` y no se escribe ninguna fila
+
+#### Scenario: Cantidad fuera del rango de la columna
+
+- **WHEN** `cantidad` supera `2147483647`
+- **THEN** la respuesta es `422` y no se escribe ninguna fila
+
 ### Requirement: La venta exige al menos un renglón y sin libros repetidos
 
-`POST /ventas` SHALL responder `422` cuando `renglones` esté vacío o cuando un mismo `libro_id` aparezca en dos renglones (`RN-09`).
+`POST /ventas` SHALL responder `422` cuando `renglones` esté vacío o cuando un mismo `libro_id` aparezca en dos renglones (`RN-09`). La detección de repetidos SHALL ejecutarse después de las verificaciones de sesión, rol y existencia de cliente/libros, para no devolver `422` donde corresponde `409`, y SHALL ocurrir sin escribir filas.
 
 #### Scenario: Cero renglones
 
@@ -43,9 +67,19 @@ Define el registro atómico de una venta: una sola transacción que escribe la v
 - **WHEN** el mismo `libro_id` aparece en dos renglones del mismo cuerpo
 - **THEN** la respuesta es `422` y no se escribe ninguna fila
 
-### Requirement: Orden de verificación 404 → 403 → 409 → 422
+#### Scenario: Libro repetido con cliente inexistente
 
-El endpoint SHALL evaluar, en este orden: autenticación (401 sin sesión), rol vigente VENDEDOR/ADMIN (403), existencia del cliente (409), existencia y vigencia de los libros (409), stock suficiente por renglón (409), y sólo entonces escribir (`CV-08`, `docs/CHECKLIST_ENTREGA.md` §8).
+- **WHEN** el mismo `libro_id` aparece dos veces y `cliente_id` no existe
+- **THEN** la respuesta es `409`, no `422`, y no se escribe ninguna fila
+
+#### Scenario: Libro repetido con libro inexistente
+
+- **WHEN** el mismo `libro_id` aparece dos veces y ese libro no existe
+- **THEN** la respuesta es `409`, no `422`, y no se escribe ninguna fila
+
+### Requirement: Orden de verificación 401 → 403 → 409 → 422
+
+El endpoint SHALL evaluar, en este orden: autenticación (401 sin sesión), rol vigente VENDEDOR/ADMIN (403), existencia del cliente (409), existencia y vigencia de los libros (409), stock agregado suficiente por libro (409) y, recién después, el contrato de renglones (422 por libro repetido o cuerpo inválido) (`CV-08`, `docs/CHECKLIST_ENTREGA.md` §8). Un `POST /ventas` no usa `404`: el `404` queda reservado para las lecturas de detalle.
 
 #### Scenario: Sin sesión
 
@@ -74,8 +108,22 @@ El endpoint SHALL evaluar, en este orden: autenticación (401 sin sesión), rol 
 
 #### Scenario: Stock insuficiente
 
-- **WHEN** el `stock` de algún libro es menor que la `cantidad` solicitada en su renglón
+- **WHEN** el `stock` de algún libro es menor que la cantidad agregada de sus renglones
 - **THEN** la respuesta es `409` y no queda ninguna escritura (ni venta, ni renglones, ni descuentos, ni movimientos)
+
+#### Scenario: Duplicado después de los 409
+
+- **WHEN** el cuerpo repite un `libro_id` pero además el cliente o un libro no existe
+- **THEN** la respuesta es `409` y no se escribe ninguna fila
+
+### Requirement: Las rutas de alta de venta no redirigen por barra final
+
+`POST /ventas` y `POST /ventas/` SHALL responder con el mismo status y cuerpo, sin `307`. La ruta canónica documentada SHALL ser `POST /ventas/`; la variante sin barra SHALL aceptarse sin redirección.
+
+#### Scenario: Alta sin barra final
+
+- **WHEN** se envía `POST /ventas` con un cuerpo válido y sesión de vendedor
+- **THEN** la respuesta es `201` con el mismo cuerpo que `POST /ventas/`, sin `307`
 
 ### Requirement: Una venta válida se escribe en una sola transacción
 
@@ -116,9 +164,19 @@ Tras confirmar la transacción, el router SHALL agenda `add_task(avisar_comproba
 
 ### Requirement: Los errores no exponen detalles internos
 
-Todo error de negocio SHALL devolver un mensaje propio en español y SHALL omitir nombres de tablas, columnas, constraints y trazas de PostgreSQL; ninguna entrada inválida SHALL terminar en `500` (`RN-15`).
+Todo error de negocio SHALL devolver un mensaje propio en español y SHALL omitir nombres de tablas, columnas, constraints y trazas de PostgreSQL; ninguna entrada inválida SHALL terminar en `500` (`RN-15`). Un `DataError`/`DBAPIError` de datos SHALL traducirse a `422` genérico en español; un `IntegrityError` SHALL conservar su traducción a `409`/`422`.
 
 #### Scenario: Entrada inválida no termina en 500
 
 - **WHEN** se envía `POST /ventas` con cuerpo inválido (por ejemplo, `precio` extra)
 - **THEN** la respuesta es `422` con un mensaje propio en español y nunca `500` ni trazas de PostgreSQL
+
+#### Scenario: DataError se traduce sin filtrar PostgreSQL
+
+- **WHEN** una escritura o consulta produce un `DataError` de datos
+- **THEN** la respuesta es `422` con un mensaje genérico en español y sin texto interno de la base
+
+#### Scenario: IntegrityError conserva su traducción
+
+- **WHEN** una escritura viola una FK o un CHECK conocido
+- **THEN** la respuesta es el `409` o `422` propio del constraint, sin texto de PostgreSQL

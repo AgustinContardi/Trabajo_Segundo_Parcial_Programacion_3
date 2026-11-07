@@ -121,7 +121,7 @@ class AsignacionRolRepository(BaseRepository[AsignacionRol]):
         Con `bloquear=True` emite `SELECT ... FOR UPDATE` sobre **todas** las
         filas vigentes (para serializar revocaciones concurrentes de `ADMIN`);
         la exclusión del objetivo se hace en memoria (§3 del design de C-15).
-        Nunca hace `commit()` (CV-02).
+        Nunca confirma la transacción (CV-02).
         """
         stmt = (
             select(AsignacionRol)

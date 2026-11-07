@@ -82,9 +82,15 @@ from fastapi.exceptions import RequestValidationError
 app = FastAPI(title="la librería", version="0.1.0", lifespan=lifespan)
 
 # Manejador transversal de validación de entrada: nunca propaga (RN-15).
-from app.core.errors import manejador_request_validation_error
+from sqlalchemy.exc import DBAPIError
+
+from app.core.errors import manejador_dbapi_error, manejador_request_validation_error
 
 app.add_exception_handler(RequestValidationError, manejador_request_validation_error)
+
+# Defensa en profundidad: un error de datos responde 422 y el resto 500, sin
+# texto de PostgreSQL. `IntegrityError` conserva su traducción a 409/422.
+app.add_exception_handler(DBAPIError, manejador_dbapi_error)
 
 # --- Grupo abierto: sin control de cambio obligatorio ---
 # health, auth, catálogo público (editoriales, generos, autores, libros).

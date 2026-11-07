@@ -2,16 +2,32 @@
 
 ## Purpose
 
-Define el comportamiento del módulo `ventas` tras su migración a seis capas centrada en
-las **lecturas**: listado paginado `GET /ventas` (personal), detalle `GET /ventas/{id}`
+Define el comportamiento del módulo `ventas` tras su migración a seis capas: sus
+**lecturas** —listado paginado `GET /ventas` (personal), detalle `GET /ventas/{id}`
 sin `requiere_rol` con decisión en el servicio (personal o dueño → 200, otro → 403,
 inexistente → 404) que muestra el título del libro aunque esté dado de baja, y
-`GET /mis-ventas` (sólo sesión, página vacía si no hay ficha de cliente). Incluye el
-contrato de capas (router construye el UoW, el servicio lo abre, la precarga vive sólo en
-`repository.py`) y la precarga con cardinalidad fija (cliente, renglones y libro de cada
-renglón, incluidos los dados de baja), que no crece con la cantidad de renglones.
+`GET /mis-ventas` (sólo sesión, página vacía si no hay ficha de cliente)— y su
+**escritura** `POST /ventas`, que delega el contrato transaccional en la capacidad
+`venta-transaccional`. Incluye el contrato de capas (router construye el UoW, el
+servicio lo abre, la precarga vive sólo en `repository.py`) y la precarga con
+cardinalidad fija (cliente, renglones y libro de cada renglón, incluidos los dados de
+baja), que no crece con la cantidad de renglones.
 
 ## Requirements
+
+### Requirement: El módulo de ventas expone la escritura `POST /ventas`
+
+El módulo `ventas` SHALL exponer `POST /ventas` además de sus lecturas. La operación SHALL delegar el contrato transaccional, la validación de entrada, el descuento de stock y los movimientos en la capacidad `venta-transaccional`, sin duplicar esas reglas en este spec. `GET /ventas/`, `GET /ventas/{id}` y `GET /mis-ventas` SHALL conservar su comportamiento.
+
+#### Scenario: El módulo acepta el alta de venta
+
+- **WHEN** se consulta el OpenAPI del módulo `ventas`
+- **THEN** aparece `POST /ventas/` con `201` y el contrato de `venta-transaccional`
+
+#### Scenario: Las lecturas no cambian
+
+- **WHEN** un usuario autorizado consulta `GET /ventas/`, `GET /ventas/{id}` o `GET /mis-ventas`
+- **THEN** la respuesta conserva el comportamiento y los códigos ya especificados
 
 ### Requirement: Listado paginado de ventas
 

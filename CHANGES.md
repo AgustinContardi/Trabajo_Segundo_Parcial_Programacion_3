@@ -560,7 +560,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-12] auto-registro-atomico
 
-- **Estado**: `[~]` en curso — implementado y con 46 tests sin base; 10 tareas abiertas esperan PostgreSQL local (2026-11-06)
+- **Estado**: `[x]` cerrado — archivado como `2026-11-07-c-12-auto-registro-atomico`. Implementa `POST /auth/registro` atómico: hash bcrypt antes de abrir el UoW y, en un solo `async with`, `usuario` + `asignacion_rol` con `rol = 'CLIENTE'` + ficha de `cliente` ligada por `usuario_id`; responde `201`, `409` propio para correo duplicado (sin apropiarse de la ficha existente) y `422` ante campos de más o contraseña de más de 72 bytes. Verificado contra PostgreSQL real: 22/22 tareas y suite completa 413 passed; sin migraciones (2026-11-07).
 - **Scope**:
   - `POST /auth/registro` → **201** con `email`, `nombre` y `password`; `rol` **no** es un campo: mandarlo
     da **422** (`extra="forbid"`).
@@ -699,7 +699,8 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-16] venta-transaccional
 
-- **Estado**: `[x]` cerrado — implementado y verificado contra PostgreSQL 17 real (325 passed / 0 errors vs baseline 304/0); `POST /ventas` atómico con stock, renglones, movimientos y `BackgroundTasks` (2026-11-07)
+- **Estado**: `[x]` cerrado — implementado y verificado contra PostgreSQL 17 real (325 passed / 0 errors vs 264 del padre, **+61**, no 21); `POST /ventas` atómico con stock, renglones, movimientos y `BackgroundTasks` (2026-11-07). Evidencia y hardening completados por el change correctivo `c-16-fix-venta-transaccional` (2026-11-07): cliente o libro inexistente → **409** (no 422/404), `parcial/test/ventas.http` presente y tareas archivadas reconciliadas. El commit `f2b6b89` no se reescribe.
+- **Nota de seguimiento (2026-11-07)**: el change correctivo `c-16-fix-venta-transaccional` (23/23 tareas, **no** es un número nuevo del roadmap) quedó archivado como `2026-11-07-c-16-fix-venta-transaccional`. Corrigió el contrato estricto de `POST /ventas` (`precio`/`total`/`fecha` y enteros fuera de rango → `422`), la traducción de `DataError`/`DBAPIError` a `422` genérico, el orden de verificación 401 → 403 → 409 → 422, y reforzó el invariante de stock y la evidencia de pruebas. Caveat honesto: en el archivo original de C-16 la tarea 5.6 permanece `[ ]` de forma deliberada (24/25), porque los movimientos son append-only y no permiten borrar las filas creadas por las pruebas; no se marca como hecha.
 - **Scope**:
   - `VentaCreate` con **sólo** `cliente_id` y `renglones: [{libro_id, cantidad}]`, `extra="forbid"`:
     mandar `precio`, `total` o `fecha` → **422**; cero renglones o `libro_id` repetido → **422**.

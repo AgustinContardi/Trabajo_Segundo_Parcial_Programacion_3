@@ -5,8 +5,8 @@ memoria (`registro_support`), `app.state` recibe un `settings` mínimo y el
 lifespan no se ejecuta. Así se verifica el contrato HTTP completo —201, 422,
 409, atomicidad y ausencia de `password_hash`— sin depender del entorno.
 
-La verificación contra PostgreSQL real (`test_registro_api` con `api_client` y
-`SELECT count(*)`) queda pendiente: no hay base disponible en este entorno.
+La verificación contra PostgreSQL real vive en `test_registro_api_db.py`
+(`api_client`, `SELECT`/`count(*)` y limpieza por email).
 """
 
 import asyncio

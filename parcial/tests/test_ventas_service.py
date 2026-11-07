@@ -5,8 +5,10 @@ Pruebas puras con un Unit of Work falso (sin PostgreSQL). Verifican:
 - 409 por cliente inexistente, libro inexistente, libro dado de baja y
   stock insuficiente, sin ninguna escritura,
 - copia de `precio_unitario` y `total = Σ(cantidad × precio)` por el servidor,
-- `libro_id` repetido → 422 antes de abrir el UoW,
-- `IntegrityError` traducido a 409 **fuera** del bloque con rollback total.
+- `libro_id` repetido → 422 **después** de los 409 (cliente/libros/baja/stock
+  agregado), dentro del UoW y sin escribir,
+- `IntegrityError` traducido a 409 **fuera** del bloque con rollback total,
+- fallo en la última escritura (movimiento) con rollback total.
 """
 
 from datetime import datetime, timezone
@@ -180,14 +182,84 @@ async def test_stock_insuficiente_devuelve_409_sin_escribir():
 
 
 @pytest.mark.asyncio
-async def test_libro_id_repetido_devuelve_422_sin_abrir_uow():
+async def test_libro_id_repetido_devuelve_422_sin_escribir():
+    """El duplicado se detecta dentro del UoW, después de los 409."""
     uow = _FakeUoW(clientes=[_cliente(1)], libros=[_libro(1, Decimal("10"), 5)])
     with pytest.raises(HTTPException) as excinfo:
         await service.registrar_venta(uow, _dto([(1, 2), (1, 3)]), _usuario())
 
     assert excinfo.value.status_code == 422
+    assert "mismo libro" in excinfo.value.detail.lower()
+    assert uow.ventas.adds == []
+    assert uow.renglones.adds == []
+    assert uow.libros.aplicado == []
     assert uow.commits == 0
-    assert uow.rollbacks == 0
+    assert uow.rollbacks == 1
+
+
+@pytest.mark.asyncio
+async def test_duplicado_con_cliente_inexistente_devuelve_409():
+    uow = _FakeUoW(clientes=[], libros=[_libro(1, Decimal("10"), 5)])
+    with pytest.raises(HTTPException) as excinfo:
+        await service.registrar_venta(uow, _dto([(1, 1), (1, 1)]), _usuario())
+
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.detail == "El cliente indicado no existe"
+    assert uow.ventas.adds == []
+    assert uow.rollbacks == 1
+
+
+@pytest.mark.asyncio
+async def test_duplicado_con_libro_inexistente_devuelve_409():
+    uow = _FakeUoW(clientes=[_cliente(1)], libros=[])
+    with pytest.raises(HTTPException) as excinfo:
+        await service.registrar_venta(uow, _dto([(99, 1), (99, 2)]), _usuario())
+
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.detail == "Uno o más libros indicados no existen"
+    assert uow.ventas.adds == []
+    assert uow.rollbacks == 1
+
+
+@pytest.mark.asyncio
+async def test_duplicado_con_stock_agregado_insuficiente_devuelve_409():
+    # Cada renglón por separado (2 <= 3) pasaría; la suma agregada (4) no.
+    uow = _FakeUoW(clientes=[_cliente(1)], libros=[_libro(1, Decimal("10"), 3)])
+    with pytest.raises(HTTPException) as excinfo:
+        await service.registrar_venta(uow, _dto([(1, 2), (1, 2)]), _usuario())
+
+    assert excinfo.value.status_code == 409
+    assert "Stock insuficiente" in excinfo.value.detail
+    assert uow.ventas.adds == []
+    assert uow.libros.aplicado == []
+    assert uow.rollbacks == 1
+
+
+@pytest.mark.asyncio
+async def test_duplicado_con_libro_dado_de_baja_devuelve_409():
+    uow = _FakeUoW(
+        clientes=[_cliente(1)],
+        libros=[_libro(1, Decimal("10"), 10, borrado_en=datetime.now(timezone.utc))],
+    )
+    with pytest.raises(HTTPException) as excinfo:
+        await service.registrar_venta(uow, _dto([(1, 1), (1, 1)]), _usuario())
+
+    assert excinfo.value.status_code == 409
+    assert "dado de baja" in excinfo.value.detail
+    assert uow.ventas.adds == []
+    assert uow.rollbacks == 1
+
+
+@pytest.mark.asyncio
+async def test_duplicado_valido_con_stock_agregado_suficiente_devuelve_422():
+    # Suma agregada 5 == stock 5: los 409 no aplican y gana el 422 del contrato.
+    uow = _FakeUoW(clientes=[_cliente(1)], libros=[_libro(1, Decimal("10"), 5)])
+    with pytest.raises(HTTPException) as excinfo:
+        await service.registrar_venta(uow, _dto([(1, 2), (1, 3)]), _usuario())
+
+    assert excinfo.value.status_code == 422
+    assert uow.ventas.adds == []
+    assert uow.rollbacks == 1
 
 
 @pytest.mark.asyncio
@@ -247,6 +319,36 @@ async def test_un_solo_renglon():
     assert len(uow.renglones.adds) == 1
     assert len(uow.libros.aplicado) == 1
     assert uow.commits == 1
+
+
+class _FakeLibroRepoFallaUltimo(_FakeLibroRepo):
+    """Falla al aplicar el movimiento del segundo renglón (última escritura)."""
+
+    async def aplicar_movimiento(self, libro, cantidad, motivo, usuario_id, venta_id=None):
+        if self.aplicado:
+            raise IntegrityError("insert", (), Exception("ck movimiento"))
+        return await super().aplicar_movimiento(
+            libro, cantidad, motivo, usuario_id, venta_id
+        )
+
+
+@pytest.mark.asyncio
+async def test_fallo_en_el_ultimo_movimiento_revierte_todo():
+    uow = _FakeUoW(
+        clientes=[_cliente(1)],
+        libros=[_libro(1, Decimal("10"), 5), _libro(2, Decimal("20"), 4)],
+    )
+    uow.libros = _FakeLibroRepoFallaUltimo(list(uow.libros._por_id.values()))
+
+    with pytest.raises(HTTPException) as excinfo:
+        await service.registrar_venta(uow, _dto([(1, 1), (2, 1)]), _usuario())
+
+    assert excinfo.value.status_code == 409
+    assert uow.commits == 0
+    assert uow.rollbacks == 1
+    # La venta y ambos renglones se habían escrito en el UoW falso, pero el
+    # rollback del `__aexit__` es el que garantiza la atomicidad real.
+    assert len(uow.libros.aplicado) == 1
 
 
 @pytest.mark.asyncio

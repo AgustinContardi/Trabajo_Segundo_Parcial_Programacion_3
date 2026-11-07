@@ -30,6 +30,7 @@ async def _setup_escenario_venta(api_client, db_sessionmaker):
     from app.modules.clientes.models import Cliente
     from app.modules.editoriales.models import Editorial
     from app.modules.libros.models import Libro
+    from app.modules.libros.repository import LibroRepository
     from app.modules.usuarios.models import AsignacionRol, Usuario
 
     async with db_sessionmaker() as session:
@@ -69,16 +70,19 @@ async def _setup_escenario_venta(api_client, db_sessionmaker):
         session.add(cliente)
         await session.flush()
 
-        # Libro con stock
+        # Libro con stock sembrado por el punto único (RN-11).
         libro = Libro(
             isbn=f"isbn-api-{uuid.uuid4().hex}",
             titulo="Libro API",
             precio=Decimal("15.00"),
-            stock=10,
+            stock=0,
             editorial_id=editorial.id,
         )
         session.add(libro)
         await session.flush()
+        await LibroRepository(session).aplicar_movimiento(
+            libro, 10, "Stock inicial", vendedor.id
+        )
         await session.commit()
 
         token = _token_manual(vendedor.id, ["VENDEDOR"])
@@ -164,6 +168,7 @@ class TestApiVentasCrear:
             from app.modules.clientes.models import Cliente
             from app.modules.editoriales.models import Editorial
             from app.modules.libros.models import Libro
+            from app.modules.libros.repository import LibroRepository
             from app.modules.usuarios.models import AsignacionRol, Usuario
 
             editorial = Editorial(
@@ -178,16 +183,6 @@ class TestApiVentasCrear:
                 email=f"c-api2-{uuid.uuid4().hex}@example.com",
             )
             session.add(cliente)
-            await session.flush()
-
-            libro = Libro(
-                isbn=f"isbn-api2-{uuid.uuid4().hex}",
-                titulo="Libro API 2",
-                precio=Decimal("10.00"),
-                stock=5,
-                editorial_id=editorial.id,
-            )
-            session.add(libro)
             await session.flush()
 
             # Usuario con rol CLIENTE (no VENDEDOR/ADMIN)
@@ -206,6 +201,19 @@ class TestApiVentasCrear:
                     rol="CLIENTE",
                     desde=datetime.now(timezone.utc),
                 )
+            )
+
+            libro = Libro(
+                isbn=f"isbn-api2-{uuid.uuid4().hex}",
+                titulo="Libro API 2",
+                precio=Decimal("10.00"),
+                stock=0,
+                editorial_id=editorial.id,
+            )
+            session.add(libro)
+            await session.flush()
+            await LibroRepository(session).aplicar_movimiento(
+                libro, 5, "Stock inicial", usuario_cliente.id
             )
             await session.commit()
 

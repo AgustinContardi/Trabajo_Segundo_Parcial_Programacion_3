@@ -2,7 +2,7 @@
 
 El servicio recibe el Unit of Work y lo abre con `async with`; nunca una
 sesión asincrónica ni construye el UoW (CV-01). Orden de errores (CV-08):
-404 → 403 → 409 → 422.
+401 → 403 → 409 → 422; el `404` pertenece a las lecturas de detalle.
 """
 
 import asyncio
@@ -11,10 +11,14 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.core.dependencies import IdentidadActual
-from app.core.errors import traducir_integrity_error
+from app.core.errors import (
+    es_error_de_datos,
+    traducir_error_de_datos,
+    traducir_integrity_error,
+)
 from app.core.paginacion import Pagina
 from app.modules.clientes.models import Cliente
 from app.modules.libros.models import Libro
@@ -83,17 +87,16 @@ async def registrar_venta(
 ) -> Venta:
     """Registra una venta atómicamente (RN-10).
 
-    Un solo `async with uow`: cliente → libros → stock → venta → renglones →
-    movimientos. El `except IntegrityError` vive **fuera** del bloque para que
-    `__aexit__` revierta las escrituras parciales antes de traducir el error.
+    Un solo `async with uow` con el orden de errores 401 → 403 → 409 → 422
+    (`CV-08`): cliente → libros existentes → libros vigentes → stock agregado
+    por libro → renglón repetido → escritura. El `except` vive **fuera** del
+    bloque para que `__aexit__` revierta las escrituras parciales antes de
+    traducir el error (CV-02).
     """
-    # Libro repetido → 422 antes de tocar la base (ni siquiera se abre el UoW).
     ids = [renglon.libro_id for renglon in dto.renglones]
-    if len(set(ids)) != len(ids):
-        raise HTTPException(
-            status_code=422,
-            detail="No se puede incluir el mismo libro dos veces en una venta",
-        )
+    # Los ids repetidos se colapsan sólo para consultar y sumar stock; la
+    # detección del duplicado ocurre después de los 409 (CV-08).
+    ids_unicos = list(dict.fromkeys(ids))
 
     try:
         async with uow:
@@ -105,9 +108,9 @@ async def registrar_venta(
                 )
 
             # 2. Libros existentes (todos los ids solicitados).
-            libros = await uow.libros.get_by_ids(ids)
+            libros = await uow.libros.get_by_ids(ids_unicos)
             por_id = {libro.id: libro for libro in libros}
-            if len(por_id) != len(ids):
+            if len(por_id) != len(ids_unicos):
                 raise HTTPException(
                     status_code=409,
                     detail="Uno o más libros indicados no existen",
@@ -121,16 +124,30 @@ async def registrar_venta(
                         detail=f"El libro '{libro.titulo}' está dado de baja",
                     )
 
-            # 4. Stock suficiente por renglón.
+            # 4. Stock suficiente con cantidades agregadas por libro: un
+            # duplicado no puede pasar dos chequeos individuales que en
+            # conjunto exceden el stock.
+            cantidades: dict[int, int] = {}
             for renglon in dto.renglones:
-                libro = por_id[renglon.libro_id]
-                if libro.stock < renglon.cantidad:
+                cantidades[renglon.libro_id] = (
+                    cantidades.get(renglon.libro_id, 0) + renglon.cantidad
+                )
+            for libro_id, cantidad in cantidades.items():
+                libro = por_id[libro_id]
+                if libro.stock < cantidad:
                     raise HTTPException(
                         status_code=409,
                         detail=f"Stock insuficiente para '{libro.titulo}'",
                     )
 
-            # 5. Venta: total calculado por el servidor.
+            # 5. Recién ahora el contrato de renglones: libro repetido → 422.
+            if len(set(ids)) != len(ids):
+                raise HTTPException(
+                    status_code=422,
+                    detail="No se puede incluir el mismo libro dos veces en una venta",
+                )
+
+            # 6. Venta: total calculado por el servidor.
             total = sum(
                 renglon.cantidad * por_id[renglon.libro_id].precio
                 for renglon in dto.renglones
@@ -143,7 +160,7 @@ async def registrar_venta(
                 )
             )
 
-            # 6. Renglones: precio_unitario copiado del libro.
+            # 7. Renglones: precio_unitario copiado del libro.
             for renglon in dto.renglones:
                 libro = por_id[renglon.libro_id]
                 await uow.renglones.add(
@@ -155,7 +172,7 @@ async def registrar_venta(
                     )
                 )
 
-            # 7. Descuento de stock + movimiento por renglón (punto único C-08).
+            # 8. Descuento de stock + movimiento por renglón (punto único C-08).
             for renglon in dto.renglones:
                 libro = por_id[renglon.libro_id]
                 await uow.libros.aplicar_movimiento(
@@ -170,7 +187,15 @@ async def registrar_venta(
             venta = await uow.ventas.get_by_id(venta.id)
             return venta
     except IntegrityError as exc:
+        # `IntegrityError` es subclase de `DBAPIError`: se evalúa primero para
+        # conservar la traducción específica de FK/CHECK a 409/422.
         raise traducir_integrity_error(exc) from exc
+    except DBAPIError as exc:
+        # Sólo los errores de datos se traducen a 422; el resto se re-lanza
+        # para que el handler global responda 500 sin texto interno (RN-15).
+        if es_error_de_datos(exc):
+            raise traducir_error_de_datos(exc) from exc
+        raise
 
 
 async def avisar_comprobante(venta_id: int) -> None:

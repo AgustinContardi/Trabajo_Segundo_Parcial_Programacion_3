@@ -11,7 +11,7 @@ Contrato de este módulo:
   nunca crea ni modifica tablas al arrancar.
 - Los repositorios harán `flush()`, nunca `commit()` (`CV-02`); el `commit` es
   del `__aexit__` del Unit of Work (`CV-01`).
-- Toda precarga (`selectinload`) vive en `repository.py` (`CV-03`).
+- Toda precarga vive en `repository.py` (`CV-03`).
 """
 
 from collections.abc import AsyncGenerator

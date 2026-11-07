@@ -1,21 +1,30 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.errors import SinNulMixin
 
+# Cotas de las columnas: `bigint` para las FK y `integer` para `cantidad`.
+# `strict=True` evita la coerción de booleanos, strings y floats (RN-09, RN-15).
+BIGINT_MAX = 2**63 - 1
+INT_MAX = 2**31 - 1
+
+ClienteId = Annotated[int, Field(strict=True, ge=1, le=BIGINT_MAX)]
+LibroId = Annotated[int, Field(strict=True, ge=1, le=BIGINT_MAX)]
+Cantidad = Annotated[int, Field(strict=True, ge=1, le=INT_MAX)]
+
 
 class RenglonCreate(BaseModel, SinNulMixin):
     model_config = ConfigDict(extra="forbid")
-    libro_id: int
-    cantidad: int = Field(gt=0)
+    libro_id: LibroId
+    cantidad: Cantidad
 
 
 class VentaCreate(BaseModel, SinNulMixin):
     model_config = ConfigDict(extra="forbid")
-    cliente_id: int
+    cliente_id: ClienteId
     renglones: List[RenglonCreate] = Field(min_length=1)
 
 

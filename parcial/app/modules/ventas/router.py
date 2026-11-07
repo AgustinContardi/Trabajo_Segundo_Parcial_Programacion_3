@@ -112,6 +112,7 @@ async def obtener_venta(
     return _to_detail(venta)
 
 
+@router.post("", response_model=VentaDetailRead, status_code=201, include_in_schema=False)
 @router.post("/", response_model=VentaDetailRead, status_code=201)
 async def crear_venta(
     dto: VentaCreate,

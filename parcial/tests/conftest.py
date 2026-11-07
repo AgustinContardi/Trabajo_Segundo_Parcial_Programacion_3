@@ -36,9 +36,14 @@ from app.modules.autores.models import Autor
 from app.modules.clientes.models import Cliente, PerfilCliente
 from app.modules.editoriales.models import Editorial
 from app.modules.generos.models import Genero
-from app.modules.libros.models import Libro, LibroAutor
+from app.modules.libros.models import Libro, LibroAutor, MovimientoStock
+from app.modules.libros.repository import LibroRepository
 from app.modules.usuarios.models import AsignacionRol, IntentoAcceso, Usuario
 from app.modules.ventas.models import RenglonVenta, Venta
+
+# Usuario técnico estable para los movimientos de "Stock inicial" de los
+# fixtures. No se borra: `movimiento_stock` es append-only y su FK lo pincha.
+EMAIL_USUARIO_STOCK = "stock-inicial-fixtures@example.com"
 
 
 @pytest.fixture(scope="session")
@@ -268,8 +273,104 @@ async def venta_factory(
 
 
 @pytest_asyncio.fixture
+async def usuario_stock(
+    db_sessionmaker: async_sessionmaker[AsyncSession],
+) -> int:
+    """Id del usuario técnico que firma los movimientos de stock inicial."""
+    async with db_sessionmaker() as session:
+        existente = (
+            await session.execute(
+                select(Usuario.id).where(Usuario.email == EMAIL_USUARIO_STOCK)
+            )
+        ).scalar_one_or_none()
+        if existente is not None:
+            return int(existente)
+        usuario = Usuario(
+            email=EMAIL_USUARIO_STOCK,
+            nombre="Sistema — stock inicial",
+            password_hash="sin-login",
+        )
+        session.add(usuario)
+        await session.commit()
+        await session.refresh(usuario)
+        return int(usuario.id)
+
+
+@pytest_asyncio.fixture
+async def libro_con_stock_inicial(
+    db_sessionmaker: async_sessionmaker[AsyncSession],
+    usuario_stock: int,
+) -> AsyncIterator[Callable[..., Awaitable[Libro]]]:
+    """Crea un libro con `stock=0` y siembra el stock por el punto único.
+
+    El movimiento inicial y el stock nacen en la misma transacción, así el
+    invariante `libro.stock = SUM(movimiento_stock.cantidad)` se cumple desde
+    el inicio (RN-11, RN-12). No hay teardown destructivo: `movimiento_stock`
+    es append-only y la FK `NO ACTION` pincha el libro.
+    """
+
+    async def crear(
+        *,
+        editorial_id: int,
+        genero_id: int | None = None,
+        isbn: str | None = None,
+        titulo: str | None = None,
+        precio: Decimal = Decimal("10.00"),
+        stock_inicial: int = 0,
+    ) -> Libro:
+        async with db_sessionmaker() as session:
+            libro = Libro(
+                isbn=isbn or f"isbn-{uuid.uuid4().hex}",
+                titulo=titulo or f"Libro {uuid.uuid4().hex}",
+                precio=precio,
+                stock=0,
+                editorial_id=editorial_id,
+                genero_id=genero_id,
+            )
+            session.add(libro)
+            await session.flush()
+            if stock_inicial:
+                await LibroRepository(session).aplicar_movimiento(
+                    libro, stock_inicial, "Stock inicial", usuario_stock
+                )
+            await session.commit()
+            await session.refresh(libro)
+            return libro
+
+    yield crear
+
+
+@pytest_asyncio.fixture
+async def invariante_stock(
+    db_sessionmaker: async_sessionmaker[AsyncSession],
+) -> AsyncIterator[Callable[..., Awaitable[list[tuple[int, int, int]]]]]:
+    """Consulta `libro.stock = SUM(movimiento_stock.cantidad)`.
+
+    Devuelve las filas que violan el invariante (vacío = correcto). Acepta
+    `libro_ids` para acotar la verificación a los libros de una prueba.
+    """
+
+    async def consultar(*, libro_ids: list[int] | None = None) -> list[tuple[int, int, int]]:
+        suma = func.coalesce(func.sum(MovimientoStock.cantidad), 0)
+        stmt = (
+            select(Libro.id, Libro.stock, suma)
+            .outerjoin(MovimientoStock, MovimientoStock.libro_id == Libro.id)
+            .group_by(Libro.id, Libro.stock)
+            .having(Libro.stock != suma)
+        )
+        if libro_ids is not None:
+            stmt = stmt.where(Libro.id.in_(libro_ids))
+        async with db_sessionmaker() as session:
+            filas = (await session.execute(stmt)).all()
+        return [(int(f[0]), int(f[1]), int(f[2])) for f in filas]
+
+    yield consultar
+
+
+@pytest_asyncio.fixture
 async def catalogo_factory(
     db_sessionmaker: async_sessionmaker[AsyncSession],
+    usuario_stock: int,
 ) -> AsyncIterator[SimpleNamespace]:
     """Crea editorial, género, autor y libro de prueba; limpia al final."""
     editoriales: list[int] = []
@@ -326,11 +427,18 @@ async def catalogo_factory(
                 isbn=isbn or f"isbn-{uuid.uuid4().hex}",
                 titulo=titulo or f"Libro {uuid.uuid4().hex}",
                 precio=precio,
-                stock=stock,
+                stock=0,
                 editorial_id=editorial_id,
                 genero_id=genero_id,
             )
             session.add(obj)
+            await session.flush()
+            if stock:
+                # Punto único de escritura de stock (RN-11): el movimiento y
+                # el stock se crean juntos dentro de la misma transacción.
+                await LibroRepository(session).aplicar_movimiento(
+                    obj, stock, "Stock inicial", usuario_stock
+                )
             await session.commit()
             await session.refresh(obj)
         libros.append(obj.id)
@@ -348,21 +456,61 @@ async def catalogo_factory(
     )
 
     async with db_sessionmaker() as session:
+        # `movimiento_stock` es append-only: un libro con movimientos queda
+        # pinchado por su FK y no se puede borrar. Se limpia sólo lo que no
+        # tiene movimientos; el resto crece con datos únicos y deterministas.
+        pinneados: set[int] = set()
         if libros:
-            await session.execute(
-                delete(RenglonVenta).where(RenglonVenta.libro_id.in_(libros))
+            pinneados = set(
+                (
+                    await session.execute(
+                        select(MovimientoStock.libro_id)
+                        .where(MovimientoStock.libro_id.in_(libros))
+                        .distinct()
+                    )
+                ).scalars()
             )
-            await session.execute(
-                delete(LibroAutor).where(LibroAutor.libro_id.in_(libros))
-            )
-            await session.execute(delete(Libro).where(Libro.id.in_(libros)))
+            borrables = [libro_id for libro_id in libros if libro_id not in pinneados]
+            if borrables:
+                await session.execute(
+                    delete(RenglonVenta).where(RenglonVenta.libro_id.in_(borrables))
+                )
+                await session.execute(
+                    delete(LibroAutor).where(LibroAutor.libro_id.in_(borrables))
+                )
+                await session.execute(delete(Libro).where(Libro.id.in_(borrables)))
+
         if autores:
             await session.execute(delete(Autor).where(Autor.id.in_(autores)))
-        if generos:
-            await session.execute(delete(Genero).where(Genero.id.in_(generos)))
-        if editoriales:
+
+        # Editorial/género que siguen referenciados por un libro pinneado
+        # tampoco se pueden borrar.
+        generos_usados: set[int] = set()
+        editoriales_usadas: set[int] = set()
+        if generos or editoriales:
+            filas = (
+                await session.execute(
+                    select(Libro.genero_id, Libro.editorial_id)
+                    .where(Libro.genero_id.in_(generos or [-1]))
+                    .union_all(
+                        select(Libro.genero_id, Libro.editorial_id).where(
+                            Libro.editorial_id.in_(editoriales or [-1])
+                        )
+                    )
+                )
+            ).all()
+            generos_usados = {int(f[0]) for f in filas if f[0] is not None}
+            editoriales_usadas = {int(f[1]) for f in filas if f[1] is not None}
+
+        generos_borrables = [g for g in generos if g not in generos_usados]
+        editoriales_borrables = [e for e in editoriales if e not in editoriales_usadas]
+        if generos_borrables:
             await session.execute(
-                delete(Editorial).where(Editorial.id.in_(editoriales))
+                delete(Genero).where(Genero.id.in_(generos_borrables))
+            )
+        if editoriales_borrables:
+            await session.execute(
+                delete(Editorial).where(Editorial.id.in_(editoriales_borrables))
             )
         await session.commit()
 
