@@ -991,6 +991,14 @@ Estado de `C-01`:
   `docs/BASELINE_TP_CAP1a4.md` (`SU-01`…`SU-09`).
 - Columnas heredadas cerradas: `SU-01` (bigint identity), `SU-07` (sin `usuario_id`, `cliente_id` con
   `ON DELETE NO ACTION`), `SU-08` (`precio_unitario`), `SU-09` (revisiones y archivos).
+- **Auditoría de verificación (2026-11-07)**: se reabrieron las 8 tareas que quedaron `[ ]` en el archivo
+  C-01 y se corrieron contra PostgreSQL 17.11 real. Quedaron cerradas `1.4`, `3.3`, `3.4`, `3.5`, `4.4`,
+  `5.3`, `6.5` y `6.4`; `pytest -q` → **413 passed**. La `6.4` se desbloqueó corrigiendo el import
+  faltante de `app.modules.usuarios.models` en `parcial/seed.py`: el seed existente ejecuta `Seed OK` y es
+  idempotente sobre una base temporal migrada. El seed funcional completo con usuarios/roles/venta/eventos
+  sigue siendo alcance de `C-17` (seed-libreria). C-01 pasó de `29/37` a **`37/37`** en
+  `openspec validate --archived --strict`. Detalle en
+  `openspec/changes/archive/2026-11-05-c-01-baseline-tp-y-fundacion/tasks.md`.
 
 Para continuar: `/opsx:propose c-02-core-repositorios-uow-paginacion` y luego `/opsx:apply`.
 

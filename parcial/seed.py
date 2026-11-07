@@ -5,6 +5,7 @@ import asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+import app.modules.usuarios.models  # noqa: F401 - registra Usuario para MovimientoStock
 from app.modules.editoriales.models import Editorial
 from app.modules.generos.models import Genero
 from app.modules.autores.models import Autor
