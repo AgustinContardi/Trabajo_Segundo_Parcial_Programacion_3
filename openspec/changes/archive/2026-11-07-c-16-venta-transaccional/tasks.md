@@ -4,8 +4,10 @@
 > Nota de procedencia: este archivo conserva su contenido original y el commit `f2b6b89`
 > no se reescribe. Las tareas marcadas `[x]` quedaron satisfechas por la evidencia nueva
 > de `parcial/tests/` y `parcial/test/ventas.http` (ver `parcial/test/ventas_http_evidence.md`);
-> la tarea 5.6 permanece `[ ]` con su explicación al pie. La reconciliación no simula
-> historial: sólo registra qué evidencia nueva cumple cada ítem.
+> la tarea 5.6 fue reformulada y marcada `[x]` con una excepción aprobada el 2026-11-07:
+> `RN-12` (movimientos append-only) prevalece sobre la redacción original que pedía borrar
+> las filas creadas por cada prueba. La reconciliación no simula historial: conserva el texto
+> original en la nota al pie y registra qué evidencia nueva cumple cada ítem.
 
 ## 1. Contract schema de entrada (`RN-09`, `RN-15`, `CHECKLIST §4`, `§8`)
 
@@ -38,7 +40,7 @@
 - [x] 5.3 Stock insuficiente: libro con stock menor que la cantidad → `409` y `count(venta)`, `count(renglon_venta)`, `count(movimiento_stock)` no crecen; el invariante `stock = SUM(movimiento_stock.cantidad)` da 0 filas. Correr `python -m pytest tests/test_ventas_api.py -q -k "stock_insuficiente"`. **Rastrea:** RN-10, RN-11, CHECKLIST §7, §8, §10 (C-11).
 - [x] 5.4 Cliente inexistente, libro inexistente y libro dado de baja → `409` en los tres, sin escrituras. Correr `python -m pytest tests/test_ventas_api.py -q -k "inexistente_o_baja"`. **Rastrea:** RN-10, RN-13, CHECKLIST §8, §10 (C-12).
 - [x] 5.5 CLIENTE → `403`; sin sesión → `401`. Correr `python -m pytest tests/test_ventas_api.py -q -k "rol_o_sesion"`. **Rastrea:** RN-04, CHECKLIST §6, §10 (C-06).
-- [ ] 5.6 Aislamiento: cada prueba borra al final los datos que creó; correr la suite dos veces seguidas da el mismo resultado. Verificar con `python -m pytest tests/test_ventas_api.py -q` dos veces. **Rastrea:** CHECKLIST §10.
+- [x] 5.6 Aislamiento y determinismo sin borrado destructivo (reformulada 2026-11-07): cada prueba usa identificadores únicos y acota sus aserciones a los ids que creó; no se borran movimientos de stock porque `RN-12` los hace append-only. Verificar con dos corridas consecutivas de la suite completa y el invariante global en 0 filas. **Rastrea:** CHECKLIST §10, `RN-12`. El texto original se conserva en la nota de reconciliación.
 
 ## 6. Evidencia manual y aceptación del change (`CHECKLIST §7`, `§8`, `§10`, §4)
 
@@ -55,12 +57,15 @@
 
 ## Nota de reconciliación (2026-11-07)
 
-- **5.6 queda `[ ]`**: el texto literal pide «cada prueba borra al final los datos que creó».
-  Eso es imposible para las pruebas 201 porque `movimiento_stock` es append-only (RN-12) y su
-  FK `NO ACTION` pincha el libro, la venta y el usuario. La intención (aislamiento y
-  determinismo) sí se cumple con datos únicos por prueba, aserciones relativas y dos corridas
-  consecutivas de la suite completa con el mismo resultado. No se marca `[x]` para no afirmar
-  un borrado destructivo que no existe.
+- **5.6 reformulada y marcada `[x]` (2026-11-07, excepción aprobada por el usuario).** El
+  texto original pedía «cada prueba borra al final los datos que creó». Ese borrado es
+  imposible para las pruebas 201 porque `movimiento_stock` es append-only (`RN-12`, trigger
+  `trg_movimiento_stock_no_modificable`) y sus FK `NO ACTION` pinchan el libro, la venta y el
+  usuario. El texto vigente exige aislamiento lógico y determinismo: datos únicos por prueba,
+  aserciones acotadas a los ids creados y dos corridas consecutivas de la suite completa con
+  el mismo resultado. La verificación completa quedó en **417 passed** y el invariante global
+  en **0 filas**. Se acepta esta excepción porque la regla dura `RN-12` prevalece sobre la
+  redacción original de la tarea; no se afirma que exista un borrado destructivo.
 - **6.2 se marca `[x]` con salvedad de método**: el entorno headless no permite la UI de REST
   Client; se ejecutaron las mismas peticiones con `httpx` contra `uvicorn` real y PostgreSQL
   17, y la salida quedó en `parcial/test/ventas_http_evidence.md`.
