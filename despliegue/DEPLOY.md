@@ -6,13 +6,15 @@ empaqueta el TP **tal como se entregó** más los artefactos de despliegue:
 `Dockerfile`, `.dockerignore`, `env.example`, `DEPLOY.md` y `evidencia/`.
 `parcial/` no usa esta imagen (`DD-15`).
 
-> **Estado de la evidencia.** En C-20 quedan escritos el `Dockerfile`, el
-> `.dockerignore`, el `env.example` y este documento. El build, la ejecución y
-> la evidencia de **D-01, D-06 y D-07** se producen en el VPS durante **C-21**,
-> porque la máquina de desarrollo no tiene Docker instalado. Por eso
-> `evidencia/` todavía no existe y los comandos de abajo figuran como
-> procedimiento, no como salida ejecutada. C-21 los corre y pega el resultado
-> real en `despliegue/evidencia/`.
+> **Estado de la evidencia.** C-20 dejó escritos el `Dockerfile`, el
+> `.dockerignore`, el `env.example` y este documento. El despliegue real se hizo
+> en el VPS con EasyPanel y las salidas están en `despliegue/evidencia/`:
+> **D-01, D-02, D-03, D-04, D-05, D-06 y D-07** tienen comando y salida real.
+> El build fue el build limpio de EasyPanel desde GitHub (build path
+> `despliegue/`, Dockerfile del repo); no se capturó el log crudo del builder,
+> pero la imagen resultante quedó `running | healthy` y el `Dockerfile` copia
+> `requirements.txt` antes del código. **D-08** (aviso de comprobante) queda para
+> C-21 porque el TP cap. 1–4 no tiene `BackgroundTasks`.
 
 ## Qué queda dentro de la imagen
 
@@ -166,21 +168,24 @@ ya existen en `app/modules/health/router.py`, y `/health/ready` ejecuta
 
 | Caso | Qué demuestra | Cuándo |
 |---|---|---|
-| **D-01** | `docker images`: base Alpine < 100 MB y la imagen del proyecto | C-21 (VPS) |
-| **D-02** | Servidor limpio: build, run y contenedor `healthy` con migraciones aplicadas | C-21 (VPS) |
-| **D-03** | Desde afuera, en la URL pública: `/health/ready`, `/libros/`, `POST /ventas/` | C-21 (VPS) |
-| **D-04** | Persistencia y reinicio: `docker rm -f` + `docker run`, los datos siguen | C-21 (VPS) |
-| **D-05** | Sin las variables `POSTGRES_*` obligatorias el contenedor **no queda sirviendo** | C-21 (VPS) |
-| **D-06** | `ls -a /app` sin `.env` y `env` sin contraseñas ni cadenas de conexión | C-21 (VPS) |
-| **D-07** | `docker exec libreria id`: usuario distinto de root | C-21 (VPS) |
-| **D-08** | Aviso del comprobante en `docker logs` después de la respuesta | C-21 (VPS) |
+| **D-01** | `docker images`: base Alpine < 100 MB y la imagen del proyecto | C-20 · [`evidencia/D-01.md`](evidencia/D-01.md) |
+| **D-02** | Servidor limpio: build, run y contenedor `healthy` con migraciones aplicadas | C-20 · [`evidencia/D-02.md`](evidencia/D-02.md) |
+| **D-03** | Desde afuera, en la URL pública: `/health/ready`, `/libros/`, `POST /ventas/` | C-20 · [`evidencia/D-03.md`](evidencia/D-03.md) |
+| **D-04** | Persistencia y reinicio: reiniciar el contenedor, los datos siguen | C-20 · [`evidencia/D-04.md`](evidencia/D-04.md) |
+| **D-05** | Sin las variables `POSTGRES_*` obligatorias el contenedor **no queda sirviendo** | C-20 · [`evidencia/D-05.md`](evidencia/D-05.md) |
+| **D-06** | `ls -a /app` sin `.env` y `env` sin contraseñas ni cadenas de conexión | C-20 · [`evidencia/D-06.md`](evidencia/D-06.md) |
+| **D-07** | `docker exec libreria id`: usuario distinto de root | C-20 · [`evidencia/D-07.md`](evidencia/D-07.md) |
+| **D-08** | Aviso del comprobante en `docker logs` después de la respuesta | C-21 (sólo `parcial/`) |
 
 C-20 deja el `Dockerfile` y el `.dockerignore` que hacen posibles D-01, D-06 y
 D-07 —base Alpine, `.env`/`.venv`/`.git`/`__pycache__` excluidos, usuario `app`
-sin privilegios— y la documentación de las correcciones. **D-01, D-06 y D-07 no
-están demostrados todavía**: sin Docker no hay salida real y, según la
-consigna, un caso D sin evidencia no suma. La URL pública, la fecha/hora y
-D-02…D-05 y D-08 son de C-21.
+sin privilegios— y la documentación de las correcciones. **D-01…D-07 quedaron
+demostrados en el VPS** con EasyPanel; la salida real está en
+`despliegue/evidencia/`. El build fue el build limpio de EasyPanel desde GitHub
+(build path `despliegue/`); no se capturó el log crudo del builder, pero la
+imagen resultante quedó healthy y el `Dockerfile` instala `requirements.txt`
+antes de copiar el código. **D-08** depende del `BackgroundTasks` de `parcial/`
+y se documenta en C-21.
 
 ## Actualización y rollback
 

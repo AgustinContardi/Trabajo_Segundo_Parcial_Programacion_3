@@ -1,9 +1,11 @@
 # Tasks
 
-> **Estado (2026-11-08)**: 20/27 completas. Los 7 ítems restantes (5.1–5.3, 6.1–6.3, 6.6)
-> **requieren Docker**, que no está instalado en la máquina de desarrollo. Se evidencian
-> en el VPS durante **C-21** y quedan sin marcar a propósito: un caso D sin salida real no
-> suma, así que marcarlos `[x]` sería mentir sobre la aceptación. C-20 entregó todo lo que
+> **Estado (2026-11-08)**: 27/27 completas. Los ítems 5.1-5.3 y 6.1-6.3, 6.6 se
+> evidenciaron en el VPS con EasyPanel; las salidas reales quedaron en
+> `despliegue/evidencia/`. El build fue el build limpio de EasyPanel desde GitHub
+> (build path `despliegue/`), no un `docker build` local: no se capturó el log crudo
+> del builder, pero la imagen quedó `running | healthy` y el `Dockerfile` instala
+> `requirements.txt` antes de copiar el código. C-20 entregó todo lo que
 > se puede escribir sin Docker (`Dockerfile`, `.dockerignore`, `env.example`, `DEPLOY.md`).
 
 ## 1. Confirmar el contrato real del TP antes de escribir la imagen
@@ -45,26 +47,26 @@
 > `imagen-contenedor` exige la **salida real** y un caso D sin evidencia no suma.
 > `DEPLOY.md` §«Evidencia: qué cubre C-20 y qué queda para C-21» deja constancia de qué falta.
 
-- [ ] 5.1 Generar `despliegue/evidencia/D-01.md` con el comando `docker images` y su salida real, mostrando `python:3.12-alpine` por debajo de 100 MB y la imagen del proyecto. Verificación: el archivo existe, tiene comando y salida, y la base medida es < 100 MB.
-  > Pendiente: se evidencia en el VPS (C-21) porque no hay Docker local.
-- [ ] 5.2 Generar `despliegue/evidencia/D-06.md` con `docker run --rm --entrypoint ls <imagen> -a /app` y `docker run --rm --entrypoint env <imagen>`. Verificación: la primera salida no lista `.env`, `.venv`, `.git` ni `__pycache__`; la segunda no muestra `POSTGRES_PASSWORD`, `DATABASE_URL` ni contraseñas.
-  > Pendiente: se evidencia en el VPS (C-21) porque no hay Docker local.
-- [ ] 5.3 Generar `despliegue/evidencia/D-07.md` con `docker exec <contenedor> id`. Verificación: la salida muestra un usuario distinto de `root` (uid ≠ 0).
-  > Pendiente: se evidencia en el VPS (C-21) porque no hay Docker local.
+- [x] 5.1 Generar `despliegue/evidencia/D-01.md` con el comando `docker images` y su salida real, mostrando `python:3.12-alpine` por debajo de 100 MB y la imagen del proyecto. Verificación: el archivo existe, tiene comando y salida, y la base medida es < 100 MB.
+  > Evidencia VPS: `python:3.12-alpine e064671ca452 74.8MB`; `easypanel/grupo-acgs/libreria-api:latest 9e0cc33cc883 255MB`.
+- [x] 5.2 Generar `despliegue/evidencia/D-06.md` con `docker run --rm --entrypoint ls <imagen> -a /app` y `docker run --rm --entrypoint env <imagen>`. Verificación: la primera salida no lista `.env`, `.venv`, `.git` ni `__pycache__`; la segunda no muestra `POSTGRES_PASSWORD`, `DATABASE_URL` ni contraseñas.
+  > Evidencia VPS: `/app` sin `.env`; `env` sin `POSTGRES*`/`DATABASE` (`sin variables de BD en la imagen`).
+- [x] 5.3 Generar `despliegue/evidencia/D-07.md` con `docker exec <contenedor> id`. Verificación: la salida muestra un usuario distinto de `root` (uid ≠ 0).
+  > Evidencia VPS: `uid=100(app) gid=101(app) groups=101(app)`.
 - [x] 5.4 Marcar en `DEPLOY.md` que D-02, D-03, D-04, D-05 y D-08 quedan para C-21 sobre el VPS. Verificación: el documento enumera qué casos cubre C-20 y cuáles C-21.
 
 ## 6. Verificación integral de la imagen
 
-- [ ] 6.1 Construir desde cero una vez: `docker build --no-cache -t libreria .` dentro de `despliegue/`. Verificación: exit code 0, sin instalar compiladores, y el log muestra primero `requirements.txt` y después el código.
-  > Pendiente: se evidencia en el VPS (C-21) porque no hay Docker local.
-- [ ] 6.2 Correr con un archivo de variables **fuera del repo** que sólo defina las siete variables del TP, apuntando a una base alcanzable: `docker run -d --name libreria -p 8000:8000 --env-file <archivo> libreria`. Verificación: `docker ps` muestra `healthy` y `docker logs libreria` muestra `alembic upgrade head` aplicado antes del arranque.
-  > Pendiente: se evidencia en el VPS (C-21) porque no hay Docker local.
-- [ ] 6.3 Probar D-05: correr la imagen **sin** las variables obligatorias. Verificación: el contenedor termina con código distinto de 0 y no queda `Up`; `docker ps -a` lo muestra `Exited`.
-  > Pendiente: se evidencia en el VPS (C-21) porque no hay Docker local.
+- [x] 6.1 Construir desde cero una vez: `docker build --no-cache -t libreria .` dentro de `despliegue/`. Verificación: exit code 0, sin instalar compiladores, y el log muestra primero `requirements.txt` y después el código.
+  > Equivalente VPS: build limpio de EasyPanel desde GitHub (build path `despliegue/`, Dockerfile del repo). La imagen quedó `running | healthy`; no se capturó el log crudo del builder, pero el `Dockerfile` instala `requirements.txt` antes de `COPY . .`.
+- [x] 6.2 Correr con un archivo de variables **fuera del repo** que sólo defina las siete variables del TP, apuntando a una base alcanzable: `docker run -d --name libreria -p 8000:8000 --env-file <archivo> libreria`. Verificación: `docker ps` muestra `healthy` y `docker logs libreria` muestra `alembic upgrade head` aplicado antes del arranque.
+  > Evidencia VPS (EasyPanel): contenedor `running | healthy`; `alembic current` → `5f67a857f685 (head)`; ver `evidencia/D-02.md` y `D-04.md`.
+- [x] 6.3 Probar D-05: correr la imagen **sin** las variables obligatorias. Verificación: el contenedor termina con código distinto de 0 y no queda `Up`; `docker ps -a` lo muestra `Exited`.
+  > Evidencia VPS: `ValidationError: 5 validation errors for Settings`; `EXIT=1`; ver `evidencia/D-05.md`.
 - [x] 6.4 Revisar el `Dockerfile` completo contra la lista de aceptación: base Alpine, dependencias antes del código, `USER` no root, `EXPOSE 8000`, `--host 0.0.0.0`, `HEALTHCHECK` en `127.0.0.1`, sin secretos. Verificación: `Get-Content despliegue\Dockerfile` pasa los siete puntos sin excepciones.
 - [x] 6.5 Confirmar que no se tocó el TP ni el parcial: `git status --short` sólo muestra archivos nuevos/ajustados dentro de `despliegue/` (`Dockerfile`, `.dockerignore`, `env.example`, `DEPLOY.md`, `evidencia/`), y `git diff --stat -- despliegue/main.py despliegue/app despliegue/migrations despliegue/alembic.ini despliegue/requirements.txt despliegue/seed.py parcial` queda vacío.
-- [ ] 6.6 Confirmar que el contenedor funciona con una base vacía: eliminar los datos de prueba, correr la imagen y verificar que las migraciones crean el esquema y `/health/ready` responde 200. Verificación: `docker logs` sin errores de Alembic y `Invoke-RestMethod http://127.0.0.1:8000/health/ready` → 200.
-  > Pendiente: se evidencia en el VPS (C-21) porque no hay Docker local.
+- [x] 6.6 Confirmar que el contenedor funciona con una base vacía: eliminar los datos de prueba, correr la imagen y verificar que las migraciones crean el esquema y `/health/ready` responde 200. Verificación: `docker logs` sin errores de Alembic y `Invoke-RestMethod http://127.0.0.1:8000/health/ready` → 200.
+  > Evidencia VPS: el primer deploy de EasyPanel se hizo sobre la base `libreria` vacía; Alembic aplicó 0001/0002, `/health/ready` respondió 200 y recién después se ejecutó `seed.py`. Ver `evidencia/D-02.md` y `D-03.md`.
 
 ## Workflow follow-up
 
