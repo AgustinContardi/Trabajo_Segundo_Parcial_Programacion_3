@@ -6,10 +6,13 @@ capítulos 1 a 4 se adopta como base y se conserva sin reescribir su lógica.
 
 ## Integrantes
 
-> Completar con nombres y apellidos antes de la entrega.
+Grupo **AURA**
 
-- _(integrante 1)_
-- _(integrante 2)_
+- Enzo Giaquinta
+- Agustin Contardi
+- Fernando Torrez
+- Ramiro Salcedo
+- Ignacio Sanchez
 
 ## Requisitos
 

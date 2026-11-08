@@ -1,0 +1,591 @@
+
+---------------------
+
+=== C-06.0a ┬À login del administrador -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 86
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:01 GMT
+server: uvicorn
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+{
+  "mensaje": "Sesi├│n iniciada",
+  "debe_cambiar_password": false,
+  "expira_en_segundos": 1800
+}
+
+---------------------
+
+=== C-06.0b ┬À login del vendedor -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 86
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:01 GMT
+server: uvicorn
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+{
+  "mensaje": "Sesi├│n iniciada",
+  "debe_cambiar_password": false,
+  "expira_en_segundos": 1800
+}
+
+---------------------
+
+=== C-06.1 ┬À GET /ventas/1 sin cookie -> 401 ===
+
+HTTP/1.1 401  - Unauthorized
+content-length: 27
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:01 GMT
+server: uvicorn
+
+{
+  "detail": "No autenticado"
+}
+
+---------------------
+
+=== C-06.2 ┬À VENDEDOR intenta crear un libro -> 403 ===
+
+HTTP/1.1 403  - Forbidden
+content-length: 26
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:01 GMT
+server: uvicorn
+
+{
+  "detail": "No autorizado"
+}
+
+---------------------
+
+=== C-06.3 ┬À el vendedor registra la venta de Ana (preparaci├│n de C-06.4/6.5) ===
+
+HTTP/1.1 201  - Created
+content-length: 278
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:01 GMT
+server: uvicorn
+
+{
+  "id": 2,
+  "cliente_id": 3,
+  "fecha": "2026-11-08T23:40:02.727229Z",
+  "total": "22000.00",
+  "cliente": {
+    "id": 3,
+    "nombre": "Ana Paz",
+    "email": "ana@example.com"
+  },
+  "renglones": [
+    {
+      "id": 3,
+      "venta_id": 2,
+      "libro_id": 3,
+      "cantidad": 1,
+      "precio_unitario": "22000.00",
+      "titulo": "Ficciones",
+      "subtotal": "22000.00"
+    }
+  ]
+}
+
+---------------------
+
+=== C-06.4 ┬À Ana (CLIENTE) inicia sesi├│n y lee SU venta -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 86
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+{
+  "mensaje": "Sesi├│n iniciada",
+  "debe_cambiar_password": false,
+  "expira_en_segundos": 1800
+}
+
+---------------------
+
+HTTP/1.1 200  - OK
+content-length: 278
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "id": 2,
+  "cliente_id": 3,
+  "fecha": "2026-11-08T23:40:02.727229Z",
+  "total": "22000.00",
+  "cliente": {
+    "id": 3,
+    "nombre": "Ana Paz",
+    "email": "ana@example.com"
+  },
+  "renglones": [
+    {
+      "id": 3,
+      "venta_id": 2,
+      "libro_id": 3,
+      "cantidad": 1,
+      "precio_unitario": "22000.00",
+      "titulo": "Ficciones",
+      "subtotal": "22000.00"
+    }
+  ]
+}
+
+---------------------
+
+=== C-06.5 ┬À Ana intenta leer la venta de Luc├¡a (venta 1) -> 403 ===
+
+HTTP/1.1 403  - Forbidden
+content-length: 26
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "detail": "No autorizado"
+}
+
+---------------------
+
+=== C-06.6 ┬À Ana lista sus ventas en el path can├│nico `GET /mis-ventas` -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 195
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "items": [
+    {
+      "id": 2,
+      "cliente_id": 3,
+      "fecha": "2026-11-08T23:40:02.727229Z",
+      "total": "22000.00",
+      "cliente": {
+        "id": 3,
+        "nombre": "Ana Paz",
+        "email": "ana@example.com"
+      }
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "size": 20,
+  "pages": 1
+}
+
+---------------------
+
+=== C-07.1 ┬À /auth/yo del vendedor antes de revocar -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 163
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "usuario": {
+    "id": 3,
+    "email": "vendedor@example.com",
+    "nombre": "Vendedor",
+    "activo": true,
+    "debe_cambiar_password": false
+  },
+  "roles": [
+    "VENDEDOR"
+  ],
+  "roles_token": [
+    "VENDEDOR"
+  ]
+}
+
+---------------------
+
+=== C-07.2 ┬À el admin revoca VENDEDOR de vendedor@ -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 155
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "id": 3,
+  "usuario_id": 3,
+  "rol": "VENDEDOR",
+  "desde": "2026-11-08T23:39:58.896401Z",
+  "vence_en": null,
+  "revocada_en": "2026-11-08T23:40:02.807349Z",
+  "otorgada_por": 1
+}
+
+---------------------
+
+=== C-07.3 ┬À la MISMA cookie del vendedor sigue autenticada en una ruta p├║blica ===
+
+HTTP/1.1 200  - OK
+content-length: 300
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "id": 1,
+  "isbn": "978-950-00-0001-1",
+  "titulo": "Rayuela",
+  "precio": "25000.00",
+  "stock": 10,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "editorial": {
+    "id": 1,
+    "nombre": "Sudamericana",
+    "pais": "Argentina"
+  },
+  "genero": {
+    "id": 1,
+    "nombre": "Novela"
+  },
+  "autores": [
+    {
+      "autor_id": 1,
+      "rol": "autor",
+      "orden": 1,
+      "autor_nombre": "Julio Cort├ízar"
+    }
+  ]
+}
+
+---------------------
+
+=== C-07.4 ┬À la MISMA cookie ya no entra a una ruta que exige ADMIN -> 403 ===
+
+HTTP/1.1 403  - Forbidden
+content-length: 26
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "detail": "No autorizado"
+}
+
+---------------------
+
+=== C-07.5 ┬À /auth/yo muestra la diferencia entre base y token -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 153
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "usuario": {
+    "id": 3,
+    "email": "vendedor@example.com",
+    "nombre": "Vendedor",
+    "activo": true,
+    "debe_cambiar_password": false
+  },
+  "roles": [],
+  "roles_token": [
+    "VENDEDOR"
+  ]
+}
+
+---------------------
+
+=== C-07.6 ┬À la fila revocada sigue existiendo -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 157
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+[
+  {
+    "id": 3,
+    "usuario_id": 3,
+    "rol": "VENDEDOR",
+    "desde": "2026-11-08T23:39:58.896401Z",
+    "vence_en": null,
+    "revocada_en": "2026-11-08T23:40:02.807349Z",
+    "otorgada_por": 1
+  }
+]
+
+---------------------
+
+=== C-07.7 ┬À vence_en en el pasado -> 422 ===
+
+HTTP/1.1 422  - Unprocessable Content
+content-length: 104
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "detail": [
+    {
+      "loc": [
+        "body",
+        "vence_en"
+      ],
+      "msg": "Los datos enviados no son v├ílidos",
+      "type": "value_error"
+    }
+  ]
+}
+
+---------------------
+
+=== C-07.8 ┬À vence_en sin zona horaria -> 422 ===
+
+HTTP/1.1 422  - Unprocessable Content
+content-length: 104
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "detail": [
+    {
+      "loc": [
+        "body",
+        "vence_en"
+      ],
+      "msg": "Los datos enviados no son v├ílidos",
+      "type": "value_error"
+    }
+  ]
+}
+
+---------------------
+
+=== C-07.9 ┬À vence_en v├ílido (zona + futuro) -> 201 ===
+
+HTTP/1.1 201  - Created
+content-length: 155
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+
+{
+  "id": 6,
+  "usuario_id": 4,
+  "rol": "VENDEDOR",
+  "desde": "2026-11-08T23:40:02.875761Z",
+  "vence_en": "2026-11-08T23:41:02.580000Z",
+  "revocada_en": null,
+  "otorgada_por": 1
+}
+
+---------------------
+
+=== C-07.10 ┬À Ana inicia sesi├│n con el rol todav├¡a vigente -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 86
+content-type: application/json
+date: Sun, 08 Nov 2026 23:40:02 GMT
+server: uvicorn
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+{
+  "mensaje": "Sesi├│n iniciada",
+  "debe_cambiar_password": false,
+  "expira_en_segundos": 1800
+}
+
+---------------------
+
+=== C-07.11 ┬À pasada la fecha de vencimiento, el rol ya no autoriza -> 403 ===
+
+HTTP/1.1 403  - Forbidden
+content-length: 26
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+
+{
+  "detail": "No autorizado"
+}
+
+---------------------
+
+HTTP/1.1 200  - OK
+content-length: 166
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+
+{
+  "usuario": {
+    "id": 4,
+    "email": "ana@example.com",
+    "nombre": "Ana Paz",
+    "activo": true,
+    "debe_cambiar_password": false
+  },
+  "roles": [
+    "CLIENTE"
+  ],
+  "roles_token": [
+    "CLIENTE",
+    "VENDEDOR"
+  ]
+}
+
+---------------------
+
+=== C-08.1 ┬À DELETE del propio ADMIN -> 409 ===
+
+HTTP/1.1 409  - Conflict
+content-length: 60
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+
+{
+  "detail": "No puede revocar su propio rol de administrador"
+}
+
+---------------------
+
+=== C-08.2 ┬À la asignaci├│n sigue vigente -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 132
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+
+[
+  {
+    "id": 1,
+    "usuario_id": 1,
+    "rol": "ADMIN",
+    "desde": "2026-11-08T23:39:58.888322Z",
+    "vence_en": null,
+    "revocada_en": null,
+    "otorgada_por": null
+  }
+]
+
+---------------------
+
+=== C-09.1 ┬À login de nuevo@ -> 200 con debe_cambiar_password: true ===
+
+HTTP/1.1 200  - OK
+content-length: 85
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+{
+  "mensaje": "Sesi├│n iniciada",
+  "debe_cambiar_password": true,
+  "expira_en_segundos": 1800
+}
+
+---------------------
+
+=== C-09.2 ┬À con la clave pendiente, el grupo protegido responde 403 -> ===
+
+HTTP/1.1 403  - Forbidden
+content-length: 26
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+
+{
+  "detail": "No autorizado"
+}
+
+---------------------
+
+=== C-09.3 ┬À /auth/yo sigue accesible con la clave pendiente -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 165
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+
+{
+  "usuario": {
+    "id": 5,
+    "email": "nuevo@example.com",
+    "nombre": "Vendedor nuevo",
+    "activo": true,
+    "debe_cambiar_password": true
+  },
+  "roles": [
+    "VENDEDOR"
+  ],
+  "roles_token": [
+    "VENDEDOR"
+  ]
+}
+
+---------------------
+
+=== C-09.4 ┬À cambiar la contrase├▒a -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 37
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+
+{
+  "mensaje": "Contrase├▒a actualizada"
+}
+
+---------------------
+
+=== C-09.5 ┬À la MISMA cookie ya entra al grupo protegido -> 200 ===
+
+HTTP/1.1 200  - OK
+content-length: 195
+content-type: application/json
+date: Sun, 08 Nov 2026 23:41:03 GMT
+server: uvicorn
+
+{
+  "items": [
+    {
+      "id": 2,
+      "cliente_id": 3,
+      "fecha": "2026-11-08T23:40:02.727229Z",
+      "total": "22000.00",
+      "cliente": {
+        "id": 3,
+        "nombre": "Ana Paz",
+        "email": "ana@example.com"
+      }
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "size": 20,
+  "pages": 1
+}
+
+28 requests processed (28 succeeded)

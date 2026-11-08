@@ -1,0 +1,10 @@
+﻿# C-10/C-15 · BackgroundTasks: aviso posterior al 201 (uvicorn sin --log-config)
+# Corrida 2026-11-08; el log completo estaba en el temporal de la corrida.
+# Las líneas repetidas de «venta 2» corresponden a corridas separadas (roles y ventas), no a un solo request.
+INFO:     Started server process [39732]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+Comprobante de la venta 2 enviado al cliente
+Comprobante de la venta 2 enviado al cliente
+Comprobante de la venta 2 enviado al cliente

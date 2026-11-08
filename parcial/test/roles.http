@@ -150,7 +150,7 @@ Cookie: {{login_ana.response.headers.Set-Cookie}}
 # RN-14.
 # @no-cookie-jar
 GET {{host}}/mis-ventas
-Cookie: <redacted>
+Cookie: {{login_ana.response.headers.Set-Cookie}}
 
 # ---------------------------------------------------------------------------
 # C-07 · Revocación y vencimiento con la cookie ya emitida

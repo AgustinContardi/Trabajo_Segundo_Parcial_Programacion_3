@@ -1,0 +1,1302 @@
+
+
+---------------------
+
+
+
+=== C-01.0a ┬À login del administrador -> 200 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 86
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+
+
+{
+
+  "mensaje": "Sesi├│n iniciada",
+
+  "debe_cambiar_password": false,
+
+  "expira_en_segundos": 1800
+
+}
+
+
+
+---------------------
+
+
+
+=== C-01.0b ┬À login del vendedor -> 200 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 86
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+
+
+{
+
+  "mensaje": "Sesi├│n iniciada",
+
+  "debe_cambiar_password": false,
+
+  "expira_en_segundos": 1800
+
+}
+
+
+
+---------------------
+
+
+
+=== C-01.1 ┬À GET /libros/abc con sesi├│n -> 422 sin ejecutar el handler ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 104
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "path",
+
+        "libro_id"
+
+      ],
+
+      "msg": "Debe ser un n├║mero entero v├ílido",
+
+      "type": "int_parsing"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.1 ┬À GET /libros/?size=2 -> 200 con total 5 y pages 3 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 518
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "items": [
+
+    {
+
+      "id": 2,
+
+      "isbn": "978-950-00-0002-2",
+
+      "titulo": "Antolog├¡a de la literatura fant├ística",
+
+      "precio": "30000.00",
+
+      "stock": 5,
+
+      "editorial_id": 2,
+
+      "genero_id": 2,
+
+      "editorial": {
+
+        "id": 2,
+
+        "nombre": "Emec├®",
+
+        "pais": "Argentina"
+
+      },
+
+      "genero": {
+
+        "id": 2,
+
+        "nombre": "Cuentos"
+
+      }
+
+    },
+
+    {
+
+      "id": 4,
+
+      "isbn": "978-950-00-0004-4",
+
+      "titulo": "Respiraci├│n artificial",
+
+      "precio": "27000.00",
+
+      "stock": 3,
+
+      "editorial_id": 3,
+
+      "genero_id": 1,
+
+      "editorial": {
+
+        "id": 3,
+
+        "nombre": "Losada",
+
+        "pais": "Argentina"
+
+      },
+
+      "genero": {
+
+        "id": 1,
+
+        "nombre": "Novela"
+
+      }
+
+    }
+
+  ],
+
+  "total": 5,
+
+  "page": 1,
+
+  "size": 2,
+
+  "pages": 3
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.2 ┬À GET /libros/?size=2&page=4 -> 422 p├ígina inexistente con mensaje propio ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 42
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "La p├ígina 4 no existe: hay 3"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.3 ┬À GET /libros/?titulo=ficc&size=1 -> total 1, pages 1 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 261
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "items": [
+
+    {
+
+      "id": 3,
+
+      "isbn": "978-950-00-0003-3",
+
+      "titulo": "Ficciones",
+
+      "precio": "22000.00",
+
+      "stock": 8,
+
+      "editorial_id": 2,
+
+      "genero_id": 1,
+
+      "editorial": {
+
+        "id": 2,
+
+        "nombre": "Emec├®",
+
+        "pais": "Argentina"
+
+      },
+
+      "genero": {
+
+        "id": 1,
+
+        "nombre": "Novela"
+
+      }
+
+    }
+
+  ],
+
+  "total": 1,
+
+  "page": 1,
+
+  "size": 1,
+
+  "pages": 1
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.4 ┬À GET /libros/?titulo=ficc&size=1&page=2 -> 422 (hay 1 p├ígina) ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 42
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "La p├ígina 2 no existe: hay 1"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.5 ┬À GET /libros/?size=500 -> 422 tama├▒o fuera del rango ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 107
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "query",
+
+        "size"
+
+      ],
+
+      "msg": "El valor supera el m├íximo permitido",
+
+      "type": "less_than_equal"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.6 ┬À b├║squeda con `' OR '1'='1'` -> 200 lista vac├¡a, no rompe ni devuelve todo ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 51
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "items": [],
+
+  "total": 0,
+
+  "page": 1,
+
+  "size": 20,
+
+  "pages": 1
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.7 ┬À PATCH /libros/1 con s├│lo `titulo` -> 200 y `precio` intacto ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 321
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 1,
+
+  "isbn": "978-950-00-0001-1",
+
+  "titulo": "Rayuela (edici├│n corregida)",
+
+  "precio": "25000.00",
+
+  "stock": 10,
+
+  "editorial_id": 1,
+
+  "genero_id": 1,
+
+  "editorial": {
+
+    "id": 1,
+
+    "nombre": "Sudamericana",
+
+    "pais": "Argentina"
+
+  },
+
+  "genero": {
+
+    "id": 1,
+
+    "nombre": "Novela"
+
+  },
+
+  "autores": [
+
+    {
+
+      "autor_id": 1,
+
+      "rol": "autor",
+
+      "orden": 1,
+
+      "autor_nombre": "Julio Cort├ízar"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.8 ┬À PATCH /libros/1 con `stock` -> 422 campo no permitido ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 98
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "stock"
+
+      ],
+
+      "msg": "El campo no est├í permitido",
+
+      "type": "extra_forbidden"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.1 ┬À alta ADMIN con stock inicial 3 -> 201 ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 249
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 6,
+
+  "isbn": "978-950-00-9001-1",
+
+  "titulo": "Libro de baja y re-alta C-13",
+
+  "precio": "10000.00",
+
+  "stock": 3,
+
+  "editorial_id": 1,
+
+  "genero_id": 1,
+
+  "editorial": {
+
+    "id": 1,
+
+    "nombre": "Sudamericana",
+
+    "pais": "Argentina"
+
+  },
+
+  "genero": {
+
+    "id": 1,
+
+    "nombre": "Novela"
+
+  },
+
+  "autores": []
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.2 ┬À GET /libros/{id}/movimientos -> 200 con "Stock inicial" ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 131
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+[
+
+  {
+
+    "id": 8,
+
+    "libro_id": 6,
+
+    "venta_id": null,
+
+    "usuario_id": 1,
+
+    "cantidad": 3,
+
+    "motivo": "Stock inicial",
+
+    "cuando": "2026-11-08T23:15:22.787515Z"
+
+  }
+
+]
+
+
+
+---------------------
+
+
+
+=== C-13.3 ┬À reponer 2 -> 200 y stock 5 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 249
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 6,
+
+  "isbn": "978-950-00-9001-1",
+
+  "titulo": "Libro de baja y re-alta C-13",
+
+  "precio": "10000.00",
+
+  "stock": 5,
+
+  "editorial_id": 1,
+
+  "genero_id": 1,
+
+  "editorial": {
+
+    "id": 1,
+
+    "nombre": "Sudamericana",
+
+    "pais": "Argentina"
+
+  },
+
+  "genero": {
+
+    "id": 1,
+
+    "nombre": "Novela"
+
+  },
+
+  "autores": []
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.4 ┬À venta de 1 ejemplar del libro nuevo -> 201 (queda una venta vieja) ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 309
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 2,
+
+  "cliente_id": 1,
+
+  "fecha": "2026-11-08T23:15:22.842952Z",
+
+  "total": "10000.00",
+
+  "cliente": {
+
+    "id": 1,
+
+    "nombre": "Luc├¡a Fern├índez",
+
+    "email": "lucia@example.com"
+
+  },
+
+  "renglones": [
+
+    {
+
+      "id": 3,
+
+      "venta_id": 2,
+
+      "libro_id": 6,
+
+      "cantidad": 1,
+
+      "precio_unitario": "10000.00",
+
+      "titulo": "Libro de baja y re-alta C-13",
+
+      "subtotal": "10000.00"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.5 ┬À DELETE /libros/{id} -> 204 (baja l├│gica) ===
+
+
+
+HTTP/1.1 204  - No Content
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+---------------------
+
+
+
+=== C-13.6 ┬À el libro dado de baja sale del cat├ílogo -> 200 sin ├®l ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 1189
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "items": [
+
+    {
+
+      "id": 2,
+
+      "isbn": "978-950-00-0002-2",
+
+      "titulo": "Antolog├¡a de la literatura fant├ística",
+
+      "precio": "30000.00",
+
+      "stock": 5,
+
+      "editorial_id": 2,
+
+      "genero_id": 2,
+
+      "editorial": {
+
+        "id": 2,
+
+        "nombre": "Emec├®",
+
+        "pais": "Argentina"
+
+      },
+
+      "genero": {
+
+        "id": 2,
+
+        "nombre": "Cuentos"
+
+      }
+
+    },
+
+    {
+
+      "id": 4,
+
+      "isbn": "978-950-00-0004-4",
+
+      "titulo": "Respiraci├│n artificial",
+
+      "precio": "27000.00",
+
+      "stock": 3,
+
+      "editorial_id": 3,
+
+      "genero_id": 1,
+
+      "editorial": {
+
+        "id": 3,
+
+        "nombre": "Losada",
+
+        "pais": "Argentina"
+
+      },
+
+      "genero": {
+
+        "id": 1,
+
+        "nombre": "Novela"
+
+      }
+
+    },
+
+    {
+
+      "id": 5,
+
+      "isbn": "978-950-00-0005-5",
+
+      "titulo": "Bestiario",
+
+      "precio": "18000.00",
+
+      "stock": 1,
+
+      "editorial_id": 1,
+
+      "genero_id": 2,
+
+      "editorial": {
+
+        "id": 1,
+
+        "nombre": "Sudamericana",
+
+        "pais": "Argentina"
+
+      },
+
+      "genero": {
+
+        "id": 2,
+
+        "nombre": "Cuentos"
+
+      }
+
+    },
+
+    {
+
+      "id": 3,
+
+      "isbn": "978-950-00-0003-3",
+
+      "titulo": "Ficciones",
+
+      "precio": "22000.00",
+
+      "stock": 8,
+
+      "editorial_id": 2,
+
+      "genero_id": 1,
+
+      "editorial": {
+
+        "id": 2,
+
+        "nombre": "Emec├®",
+
+        "pais": "Argentina"
+
+      },
+
+      "genero": {
+
+        "id": 1,
+
+        "nombre": "Novela"
+
+      }
+
+    },
+
+    {
+
+      "id": 1,
+
+      "isbn": "978-950-00-0001-1",
+
+      "titulo": "Rayuela (edici├│n corregida)",
+
+      "precio": "25000.00",
+
+      "stock": 10,
+
+      "editorial_id": 1,
+
+      "genero_id": 1,
+
+      "editorial": {
+
+        "id": 1,
+
+        "nombre": "Sudamericana",
+
+        "pais": "Argentina"
+
+      },
+
+      "genero": {
+
+        "id": 1,
+
+        "nombre": "Novela"
+
+      }
+
+    }
+
+  ],
+
+  "total": 5,
+
+  "page": 1,
+
+  "size": 100,
+
+  "pages": 1
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.7 ┬À GET /libros/{id} del libro dado de baja -> 404 ===
+
+
+
+HTTP/1.1 404  - Not Found
+
+content-length: 32
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Libro no encontrado"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.8 ┬À la venta vieja sigue mostrando el t├¡tulo del libro dado de baja ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 309
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 2,
+
+  "cliente_id": 1,
+
+  "fecha": "2026-11-08T23:15:22.842952Z",
+
+  "total": "10000.00",
+
+  "cliente": {
+
+    "id": 1,
+
+    "nombre": "Luc├¡a Fern├índez",
+
+    "email": "lucia@example.com"
+
+  },
+
+  "renglones": [
+
+    {
+
+      "id": 3,
+
+      "venta_id": 2,
+
+      "libro_id": 6,
+
+      "cantidad": 1,
+
+      "precio_unitario": "10000.00",
+
+      "titulo": "Libro de baja y re-alta C-13",
+
+      "subtotal": "10000.00"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.9 ┬À re-alta con el mismo ISBN -> 201 (├¡ndice ├║nico parcial) ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 259
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 7,
+
+  "isbn": "978-950-00-9001-1",
+
+  "titulo": "Libro de baja y re-alta C-13 (re-alta)",
+
+  "precio": "10000.00",
+
+  "stock": 3,
+
+  "editorial_id": 1,
+
+  "genero_id": 1,
+
+  "editorial": {
+
+    "id": 1,
+
+    "nombre": "Sudamericana",
+
+    "pais": "Argentina"
+
+  },
+
+  "genero": {
+
+    "id": 1,
+
+    "nombre": "Novela"
+
+  },
+
+  "autores": []
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.10 ┬À segundo alta con el ISBN a├║n vigente -> 409 ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 44
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Ya existe un libro con ese ISBN"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.11 ┬À vender el libro dado de baja -> 409 ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 71
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "El libro 'Libro de baja y re-alta C-13' est├í dado de baja"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.12 ┬À reponer el libro dado de baja -> 409 ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 40
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "El libro est├í dado de baja"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.13 ┬À segundo DELETE del mismo libro -> 404 ===
+
+
+
+HTTP/1.1 404  - Not Found
+
+content-length: 32
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:22 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Libro no encontrado"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-13.14 ┬À control SQL de las dos filas del ISBN ===
+
+
+
+
+
+25 requests processed (25 succeeded)
+

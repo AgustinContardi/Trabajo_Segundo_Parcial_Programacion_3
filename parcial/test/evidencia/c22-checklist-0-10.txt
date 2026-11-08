@@ -1,0 +1,400 @@
+# Evidencia §0–§10 — comandos re-ejecutados (2026-11-08)
+
+## app/core
+exit: 0
+```text
+__init__.py
+__pycache__
+config.py
+database.py
+dependencies.py
+errors.py
+paginacion.py
+repository.py
+security.py
+unit_of_work.py
+```
+
+## app/modules
+exit: 0
+```text
+__init__.py
+__pycache__
+autores
+clientes
+editoriales
+generos
+health
+libros
+usuarios
+ventas
+```
+
+## app/modules/health
+exit: 0
+```text
+__pycache__
+router.py
+```
+
+## test
+exit: 0
+```text
+EVIDENCIA.md
+auth.http
+evidencia
+libros.http
+registro.http
+registro_http_evidence.md
+roles.http
+solo_agregado.sql
+ventas.http
+ventas_http_evidence.md
+```
+
+## migrations/versions
+exit: 0
+```text
+.gitkeep
+0ba1752f7c23_0001_initial_tp_baseline.py
+5229054e2bcc_0005_now_server_defaults.py
+5f67a857f685_0002_add_genero.py
+__pycache__
+c8d2dea5529f_append_only.py
+dd4a0e5e9cf7_acceso_y_stock.py
+```
+
+## tests (archivos)
+exit: 0
+```text
+109 archivos; .http=0; .sql=0
+```
+
+## git grep create_all
+exit: 0
+```text
+README.md:22:  Alembic, nunca con `create_all`)
+```
+
+## git grep UnitOfWork(
+exit: 1
+```text
+
+```
+
+## git grep async with
+exit: 1
+```text
+
+```
+
+## git grep password_hash
+exit: 1
+```text
+
+```
+
+## selectinload fuera de repository.py
+exit: 0
+```text
+(sin filas)
+```
+
+## commit() en repositorios
+exit: 0
+```text
+(sin filas)
+```
+
+## AsyncSession/UnitOfWork en servicios
+exit: 0
+```text
+usuarios:14:from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+usuarios:73:sessionmaker: async_sessionmaker[AsyncSession],
+usuarios:112:sessionmaker: async_sessionmaker[AsyncSession],
+```
+
+## git grep bcrypt|to_thread|Semaphore
+exit: 0
+```text
+app/core/security.py:7:import bcrypt
+app/core/security.py:22:    return bcrypt.hashpw(password, bcrypt.gensalt(rounds=rounds))
+app/core/security.py:27:        return bcrypt.checkpw(password, password_hash)
+app/core/security.py:37:    semaphore: asyncio.Semaphore,
+app/core/security.py:39:    """Calcula un hash bcrypt en un worker, bajo el semáforo compartido."""
+app/core/security.py:43:        result = await asyncio.to_thread(_hash_password_sync, password_bytes, rounds)
+app/core/security.py:50:    semaphore: asyncio.Semaphore,
+app/core/security.py:52:    """Verifica bcrypt fuera del event loop y bajo el semáforo compartido."""
+app/core/security.py:57:        return await asyncio.to_thread(
+```
+
+## git grep roles_vigentes
+exit: 0
+```text
+app/core/dependencies.py:102:    roles_db = tuple(await UsuarioRepository(session).roles_vigentes(usuario.id))
+app/modules/usuarios/repository.py:56:    async def roles_vigentes(self, usuario_id: int) -> list[str]:
+```
+
+## git grep AsignacionRol
+exit: 0
+```text
+app/modules/usuarios/repository.py:18:    AsignacionRol,
+app/modules/usuarios/repository.py:32:    asignacion: AsignacionRol
+app/modules/usuarios/repository.py:59:            select(AsignacionRol.rol)
+app/modules/usuarios/repository.py:61:                AsignacionRol.usuario_id == usuario_id,
+app/modules/usuarios/repository.py:62:                AsignacionRol.revocada_en.is_(None),
+app/modules/usuarios/repository.py:64:                    AsignacionRol.vence_en.is_(None),
+app/modules/usuarios/repository.py:65:                    AsignacionRol.vence_en > func.now(),
+app/modules/usuarios/repository.py:68:            .order_by(AsignacionRol.rol)
+app/modules/usuarios/repository.py:74:class AsignacionRolRepository(BaseRepository[AsignacionRol]):
+app/modules/usuarios/repository.py:78:        super().__init__(session, AsignacionRol)
+app/modules/usuarios/repository.py:87:            (AsignacionRol.vence_en.is_(None))
+app/modules/usuarios/repository.py:88:            | (AsignacionRol.vence_en > func.now())
+app/modules/usuarios/repository.py:91:            select(AsignacionRol, vigente_expr)
+app/modules/usuarios/repository.py:93:                AsignacionRol.usuario_id == usuario_id,
+app/modules/usuarios/repository.py:94:                AsignacionRol.rol == rol,
+app/modules/usuarios/repository.py:95:                AsignacionRol.revocada_en.is_(None),
+app/modules/usuarios/repository.py:104:    async def listar_por_usuario(self, usuario_id: int) -> list[AsignacionRol]:
+app/modules/usuarios/repository.py:108:            select(AsignacionRol)
+app/modules/usuarios/repository.py:109:            .where(AsignacionRol.usuario_id == usuario_id)
+app/modules/usuarios/repository.py:110:            .order_by(AsignacionRol.desde.desc(), AsignacionRol.id.desc())
+app/modules/usuarios/repository.py:127:            select(AsignacionRol)
+app/modules/usuarios/repository.py:129:                AsignacionRol.rol == "ADMIN",
+app/modules/usuarios/repository.py:130:                AsignacionRol.revocada_en.is_(None),
+app/modules/usuarios/repository.py:132:                    AsignacionRol.vence_en.is_(None),
+app/modules/usuarios/repository.py:133:                    AsignacionRol.vence_en > func.now(),
+app/modules/usuarios/repository.py:146:        self, asignacion: AsignacionRol, cuando: datetime | None = None
+app/modules/usuarios/repository.py:163:    ) -> AsignacionRol:
+app/modules/usuarios/repository.py:165:        asignacion = AsignacionRol(
+```
+
+## git grep requiere_rol
+exit: 0
+```text
+app/modules/ventas/router.py:6:    requiere_rol,
+app/modules/ventas/router.py:27:_solo_personal = requiere_rol("VENDEDOR", "ADMIN")
+app/modules/ventas/router.py:136:    actual: IdentidadActual = Depends(requiere_rol("VENDEDOR", "ADMIN")),
+app/modules/ventas/router.py:141:    a `requiere_rol` y la escritura al servicio. No hay lógica de negocio aquí
+```
+
+## git grep patch
+exit: 1
+```text
+
+```
+
+## extra=forbid / exclude_unset
+exit: 0
+```text
+extra="forbid": 38; exclude_unset: 4
+```
+
+## handlers no async
+exit: 0
+```text
+clientes:25:def _to_cliente_read(obj) -> ClienteRead:
+clientes:34:def _to_detail(obj) -> ClienteDetailRead:
+usuarios:33:def _ip_de(request: Request) -> str:
+ventas:30:def _to_venta_read(v) -> VentaRead:
+ventas:45:def _to_detail(venta) -> VentaDetailRead:
+```
+
+## alembic history
+exit: 0
+```text
+c8d2dea5529f -> 5229054e2bcc (head), 0005 now() reales en los defaults de fecha
+dd4a0e5e9cf7 -> c8d2dea5529f, 0004 append only (movimiento_stock)
+5f67a857f685 -> dd4a0e5e9cf7, acceso y stock
+0ba1752f7c23 -> 5f67a857f685, 0002 add genero
+<base> -> 0ba1752f7c23, 0001 initial tp baseline
+```
+
+## alembic current
+exit: 0
+```text
+5229054e2bcc (head)
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+```
+
+## alembic check
+exit: 0
+```text
+No new upgrade operations detected.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+```
+
+## routers / main
+exit: 0
+```text
+- `lifespan` es el **único** lugar que construye recursos: `Settings`, motor,
+fábrica de sesiones, semáforo de bcrypt y `hash_ficticio`. Todo queda en
+`app.state` y el motor se libera con `dispose()` en el `finally`.
+- `hash_ficticio` se calcula **una sola vez**, con `asyncio.to_thread`, para que
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+app.state.hash_ficticio = await asyncio.to_thread(
+await engine.dispose()
+app = FastAPI(title="la librería", version="0.1.0", lifespan=lifespan)
+router_abierto.include_router(health_router)
+router_abierto.include_router(auth_router)
+router_abierto.include_router(editoriales_router)
+router_abierto.include_router(generos_router)
+router_abierto.include_router(autores_router)
+router_abierto.include_router(libros_router)
+app.include_router(router_abierto)
+router_protegido.include_router(clientes_router)
+router_protegido.include_router(ventas_router)
+router_protegido.include_router(router_mis_ventas)
+router_protegido.include_router(router_usuarios)
+router_protegido.include_router(router_eventos)
+router_protegido.include_router(editoriales_router_admin)
+router_protegido.include_router(generos_router_admin)
+router_protegido.include_router(autores_router_admin)
+router_protegido.include_router(libros_router_admin)
+app.include_router(router_protegido)
+```
+
+## Defaults now()
+exit: 0
+```text
+asignacion_rol.desde=now()
+evento_seguridad.cuando=now()
+intento_acceso.cuando=now()
+movimiento_stock.cuando=now()
+venta.fecha=now()
+```
+
+## FK sin indice
+exit: 0
+```text
+tabla | fk 
+-------+----
+(0 filas)
+```
+
+## Indices parciales
+exit: 0
+```text
+uq_asignacion_rol_abierta
+uq_libro_isbn_vigente
+```
+
+## Tipos dinero/fecha
+exit: 0
+```text
+asignacion_rol.desde=timestamp with time zone
+asignacion_rol.revocada_en=timestamp with time zone
+asignacion_rol.vence_en=timestamp with time zone
+evento_seguridad.cuando=timestamp with time zone
+intento_acceso.cuando=timestamp with time zone
+libro.borrado_en=timestamp with time zone
+libro.precio=numeric
+movimiento_stock.cuando=timestamp with time zone
+renglon_venta.precio_unitario=numeric
+venta.fecha=timestamp with time zone
+venta.total=numeric
+```
+
+## Tablas
+exit: 0
+```text
+15
+```
+
+## Seed: usuarios/roles
+exit: 0
+```text
+id |        email         |   rol    
+----+----------------------+----------
+  1 | admin@example.com    | ADMIN
+  2 | admin2@example.com   | ADMIN
+  3 | vendedor@example.com | VENDEDOR
+  4 | ana@example.com      | CLIENTE
+  5 | nuevo@example.com    | VENDEDOR
+(5 filas)
+```
+
+## Seed: libros
+exit: 0
+```text
+id |                titulo                 | stock 
+----+---------------------------------------+-------
+  1 | Rayuela                               |    10
+  2 | Antología de la literatura fantástica |     5
+  3 | Ficciones                             |     8
+  4 | Respiración artificial                |     3
+  5 | Bestiario                             |     1
+(5 filas)
+```
+
+## Seed: clientes
+exit: 0
+```text
+id |     nombre      | usuario_id 
+----+-----------------+------------
+  1 | Lucía Fernández |           
+  2 | Tomás Ríos      |           
+  3 | Ana Paz         |          4
+(3 filas)
+```
+
+## Seed: venta/evento
+exit: 0
+```text
+total   | renglones | movimientos |  actor  
+----------+-----------+-------------+---------
+ 69000.00 |         2 |           7 | SISTEMA
+(1 fila)
+```
+
+## Invariante stock
+exit: 0
+```text
+id 
+----
+(0 filas)
+```
+
+## OpenAPI rutas de ventas
+exit: 0
+```text
+True
+False
+['/clientes/{cliente_id}/ventas', '/mis-ventas', '/ventas/', '/ventas/{venta_id}']
+['get']
+```
+
+## UoW por modulo
+7
+
+## git check-ignore
+parcial/.gitignore:2:.env	.env
+
+## .env trackeado
+0
+
+## motor/sessionmaker
+main.py:7:`app.state` y el motor se libera con `dispose()` en el `finally`.
+main.py:60:app.state.settings = settings
+main.py:61:app.state.engine = engine
+main.py:62:app.state.sessionmaker = crear_sessionmaker(engine)
+main.py:63:app.state.bcrypt_sem = asyncio.Semaphore(settings.BCRYPT_MAX_CONCURRENCY)
+main.py:67:async with app.state.bcrypt_sem:
+main.py:68:app.state.hash_ficticio = await asyncio.to_thread(
+database.py:6:`main.py` y se guardan en `app.state`; un recurso creado al importar nace
+database.py:8:- `get_session` toma la fábrica de `app.state`, entrega **una sesión por
+database.py:23:async_sessionmaker,
+database.py:24:create_async_engine,
+database.py:32:return create_async_engine(
+database.py:34:pool_size=settings.POOL_SIZE,
+database.py:39:def crear_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+database.py:42:`expire_on_commit=False` es obligatorio: el servicio debe poder leer los
+database.py:46:return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+database.py:51:factory: async_sessionmaker[AsyncSession] = request.app.state.sessionmaker

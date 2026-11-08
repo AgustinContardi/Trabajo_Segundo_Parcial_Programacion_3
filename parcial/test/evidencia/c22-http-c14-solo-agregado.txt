@@ -1,0 +1,30 @@
+psql : psql:test/solo_agregado.sql:24: ERROR:  movimiento_stock es de solo agregado: operacion UPDATE no permitida
+
+En línea: 1 Carácter: 47
+
++ ... d parcial ; psql -h 127.0.0.1 -U libreria -d libreria -f test/solo_ag ...
+
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    + CategoryInfo          : NotSpecified: (psql:test/solo_...TE no permitida:String) [], RemoteException
+
+    + FullyQualifiedErrorId : NativeCommandError
+
+ 
+
+CONTEXTO:  funci├│n PL/pgSQL movimiento_stock_no_modificable() en la l├¡nea 3 en RAISE
+
+psql:test/solo_agregado.sql:28: ERROR:  movimiento_stock es de solo agregado: operacion DELETE no permitida
+
+CONTEXTO:  funci├│n PL/pgSQL movimiento_stock_no_modificable() en la l├¡nea 3 en RAISE
+
+ filas_movimiento_stock 
+
+------------------------
+
+                     15
+
+(1 fila)
+
+
+

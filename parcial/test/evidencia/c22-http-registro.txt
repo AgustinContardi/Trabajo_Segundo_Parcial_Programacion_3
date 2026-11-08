@@ -1,0 +1,270 @@
+
+
+---------------------
+
+
+
+=== C-02.1 ┬À alta v├ílida -> 201 (usuario + rol CLIENTE + ficha) ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 119
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:11:49 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 6,
+
+  "email": "c02-alta-2026-11-08-01@example.com",
+
+  "nombre": "Ana P├®rez",
+
+  "activo": true,
+
+  "debe_cambiar_password": false
+
+}
+
+
+
+---------------------
+
+
+
+=== C-02.2 ┬À correo ya registrado como USUARIO -> 409 ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 47
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:11:49 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Ya existe un usuario con ese email"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-02.3 ┬À correo ya presente como CLIENTE sin usuario -> 409 sin apropiarse de la ficha ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 47
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:11:49 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Ya existe un cliente con ese email"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-02.4 ┬À campo `rol` en el cuerpo -> 422 sin escribir filas ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 96
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:11:49 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "rol"
+
+      ],
+
+      "msg": "El campo no est├í permitido",
+
+      "type": "extra_forbidden"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-02.5 ┬À contrase├▒a de 73 bytes -> 422 antes de bcrypt ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 104
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:11:49 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "password"
+
+      ],
+
+      "msg": "Los datos enviados no son v├ílidos",
+
+      "type": "value_error"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-02.6 ┬À 40 ┬½├▒┬╗ = 80 bytes -> 422 antes de bcrypt ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 104
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:11:49 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "password"
+
+      ],
+
+      "msg": "Los datos enviados no son v├ílidos",
+
+      "type": "value_error"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-02.7 ┬À contrase├▒a de exactamente 72 bytes -> 201 ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 133
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:11:49 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 9,
+
+  "email": "c02-72bytes-2026-11-08-01@example.com",
+
+  "nombre": "L├¡mite Setenta y Dos",
+
+  "activo": true,
+
+  "debe_cambiar_password": false
+
+}
+
+
+
+7 requests processed (7 succeeded)
+

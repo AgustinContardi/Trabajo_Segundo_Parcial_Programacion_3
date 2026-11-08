@@ -1,0 +1,22 @@
+== Conteos tras la corrida de ventas ==
+
+ ventas | renglones | movimientos 
+
+--------+-----------+-------------
+
+      4 |         9 |          15
+
+(1 fila)
+
+
+
+== Invariante stock ==
+
+ id 
+
+----
+
+(0 filas)
+
+
+

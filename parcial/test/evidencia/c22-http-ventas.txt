@@ -1,0 +1,998 @@
+
+
+---------------------
+
+
+
+=== C-10.0a ┬À login del vendedor -> 200 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 86
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+
+
+{
+
+  "mensaje": "Sesi├│n iniciada",
+
+  "debe_cambiar_password": false,
+
+  "expira_en_segundos": 1800
+
+}
+
+
+
+---------------------
+
+
+
+=== C-10.0b ┬À login del administrador -> 200 (preparaci├│n de C-12) ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 86
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+
+
+{
+
+  "mensaje": "Sesi├│n iniciada",
+
+  "debe_cambiar_password": false,
+
+  "expira_en_segundos": 1800
+
+}
+
+
+
+---------------------
+
+
+
+=== C-10.1 ┬À venta de 2 renglones -> 201 con precios copiados y total ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 408
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 2,
+
+  "cliente_id": 1,
+
+  "fecha": "2026-11-08T23:15:35.362214Z",
+
+  "total": "47000.00",
+
+  "cliente": {
+
+    "id": 1,
+
+    "nombre": "Luc├¡a Fern├índez",
+
+    "email": "lucia@example.com"
+
+  },
+
+  "renglones": [
+
+    {
+
+      "id": 3,
+
+      "venta_id": 2,
+
+      "libro_id": 1,
+
+      "cantidad": 1,
+
+      "precio_unitario": "25000.00",
+
+      "titulo": "Rayuela",
+
+      "subtotal": "25000.00"
+
+    },
+
+    {
+
+      "id": 4,
+
+      "venta_id": 2,
+
+      "libro_id": 3,
+
+      "cantidad": 1,
+
+      "precio_unitario": "22000.00",
+
+      "titulo": "Ficciones",
+
+      "subtotal": "22000.00"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-10.2 ┬À POST /ventas sin barra final -> 201, sin 307 ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 288
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 3,
+
+  "cliente_id": 1,
+
+  "fecha": "2026-11-08T23:15:35.381820Z",
+
+  "total": "25000.00",
+
+  "cliente": {
+
+    "id": 1,
+
+    "nombre": "Luc├¡a Fern├índez",
+
+    "email": "lucia@example.com"
+
+  },
+
+  "renglones": [
+
+    {
+
+      "id": 5,
+
+      "venta_id": 3,
+
+      "libro_id": 1,
+
+      "cantidad": 1,
+
+      "precio_unitario": "25000.00",
+
+      "titulo": "Rayuela",
+
+      "subtotal": "25000.00"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-10.3 ┬À el detalle devuelve los dos renglones con precio copiado -> 200 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 408
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 2,
+
+  "cliente_id": 1,
+
+  "fecha": "2026-11-08T23:15:35.362214Z",
+
+  "total": "47000.00",
+
+  "cliente": {
+
+    "id": 1,
+
+    "nombre": "Luc├¡a Fern├índez",
+
+    "email": "lucia@example.com"
+
+  },
+
+  "renglones": [
+
+    {
+
+      "id": 3,
+
+      "venta_id": 2,
+
+      "libro_id": 1,
+
+      "cantidad": 1,
+
+      "precio_unitario": "25000.00",
+
+      "titulo": "Rayuela",
+
+      "subtotal": "25000.00"
+
+    },
+
+    {
+
+      "id": 4,
+
+      "venta_id": 2,
+
+      "libro_id": 3,
+
+      "cantidad": 1,
+
+      "precio_unitario": "22000.00",
+
+      "titulo": "Ficciones",
+
+      "subtotal": "22000.00"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-11.1 ┬À Rayuela x1 (alcanza) + Bestiario x2 (hay 1) -> 409 sin escrituras ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 48
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Stock insuficiente para 'Bestiario'"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-12.1 ┬À cliente inexistente -> 409 sin escrituras ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 42
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "El cliente indicado no existe"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-12.2 ┬À libro inexistente -> 409 sin escrituras ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 51
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Uno o m├ís libros indicados no existen"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-12.3 ┬À preparaci├│n: el admin crea un libro y lo da de baja ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 223
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 6,
+
+  "isbn": "978-950-00-9002-2",
+
+  "titulo": "Libro descartable C-12",
+
+  "precio": "5000.00",
+
+  "stock": 1,
+
+  "editorial_id": 1,
+
+  "genero_id": null,
+
+  "editorial": {
+
+    "id": 1,
+
+    "nombre": "Sudamericana",
+
+    "pais": "Argentina"
+
+  },
+
+  "genero": null,
+
+  "autores": []
+
+}
+
+
+
+---------------------
+
+
+
+HTTP/1.1 204  - No Content
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+---------------------
+
+
+
+=== C-12.4 ┬À vender un libro dado de baja -> 409 sin escrituras ===
+
+
+
+HTTP/1.1 409  - Conflict
+
+content-length: 65
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "El libro 'Libro descartable C-12' est├í dado de baja"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.1 ┬À `renglones: []` -> 422 ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 99
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "renglones"
+
+      ],
+
+      "msg": "La lista no puede estar vac├¡a",
+
+      "type": "too_short"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.2 ┬À libro repetido -> 422 ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 70
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "No se puede incluir el mismo libro dos veces en una venta"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.3 ┬À campo extra `precio` en el rengl├│n/cuerpo -> 422 ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 99
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "precio"
+
+      ],
+
+      "msg": "El campo no est├í permitido",
+
+      "type": "extra_forbidden"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.4 ┬À campo extra `total` -> 422 ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 98
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "total"
+
+      ],
+
+      "msg": "El campo no est├í permitido",
+
+      "type": "extra_forbidden"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.5 ┬À campo extra `fecha` -> 422 ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 98
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "fecha"
+
+      ],
+
+      "msg": "El campo no est├í permitido",
+
+      "type": "extra_forbidden"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-16.6 ┬À cantidad 0 -> 422 ===
+
+
+
+HTTP/1.1 422  - Unprocessable Content
+
+content-length: 139
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": [
+
+    {
+
+      "loc": [
+
+        "body",
+
+        "renglones",
+
+        0,
+
+        "cantidad"
+
+      ],
+
+      "msg": "El valor debe ser mayor que el m├¡nimo permitido",
+
+      "type": "greater_than_equal"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-15.1 ┬À venta con 4 renglones -> 201 ===
+
+
+
+HTTP/1.1 201  - Created
+
+content-length: 693
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 4,
+
+  "cliente_id": 1,
+
+  "fecha": "2026-11-08T23:15:35.496828Z",
+
+  "total": "104000.00",
+
+  "cliente": {
+
+    "id": 1,
+
+    "nombre": "Luc├¡a Fern├índez",
+
+    "email": "lucia@example.com"
+
+  },
+
+  "renglones": [
+
+    {
+
+      "id": 6,
+
+      "venta_id": 4,
+
+      "libro_id": 1,
+
+      "cantidad": 1,
+
+      "precio_unitario": "25000.00",
+
+      "titulo": "Rayuela",
+
+      "subtotal": "25000.00"
+
+    },
+
+    {
+
+      "id": 7,
+
+      "venta_id": 4,
+
+      "libro_id": 2,
+
+      "cantidad": 1,
+
+      "precio_unitario": "30000.00",
+
+      "titulo": "Antolog├¡a de la literatura fant├ística",
+
+      "subtotal": "30000.00"
+
+    },
+
+    {
+
+      "id": 8,
+
+      "venta_id": 4,
+
+      "libro_id": 3,
+
+      "cantidad": 1,
+
+      "precio_unitario": "22000.00",
+
+      "titulo": "Ficciones",
+
+      "subtotal": "22000.00"
+
+    },
+
+    {
+
+      "id": 9,
+
+      "venta_id": 4,
+
+      "libro_id": 4,
+
+      "cantidad": 1,
+
+      "precio_unitario": "27000.00",
+
+      "titulo": "Respiraci├│n artificial",
+
+      "subtotal": "27000.00"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-15.2 ┬À detalle de la venta de 4 renglones -> 200 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 693
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:15:35 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "id": 4,
+
+  "cliente_id": 1,
+
+  "fecha": "2026-11-08T23:15:35.496828Z",
+
+  "total": "104000.00",
+
+  "cliente": {
+
+    "id": 1,
+
+    "nombre": "Luc├¡a Fern├índez",
+
+    "email": "lucia@example.com"
+
+  },
+
+  "renglones": [
+
+    {
+
+      "id": 6,
+
+      "venta_id": 4,
+
+      "libro_id": 1,
+
+      "cantidad": 1,
+
+      "precio_unitario": "25000.00",
+
+      "titulo": "Rayuela",
+
+      "subtotal": "25000.00"
+
+    },
+
+    {
+
+      "id": 7,
+
+      "venta_id": 4,
+
+      "libro_id": 2,
+
+      "cantidad": 1,
+
+      "precio_unitario": "30000.00",
+
+      "titulo": "Antolog├¡a de la literatura fant├ística",
+
+      "subtotal": "30000.00"
+
+    },
+
+    {
+
+      "id": 8,
+
+      "venta_id": 4,
+
+      "libro_id": 3,
+
+      "cantidad": 1,
+
+      "precio_unitario": "22000.00",
+
+      "titulo": "Ficciones",
+
+      "subtotal": "22000.00"
+
+    },
+
+    {
+
+      "id": 9,
+
+      "venta_id": 4,
+
+      "libro_id": 4,
+
+      "cantidad": 1,
+
+      "precio_unitario": "27000.00",
+
+      "titulo": "Respiraci├│n artificial",
+
+      "subtotal": "27000.00"
+
+    }
+
+  ]
+
+}
+
+
+
+---------------------
+
+
+
+=== C-10.4 ┬À control final del invariante global -> 0 filas ===
+
+
+
+
+
+20 requests processed (20 succeeded)
+

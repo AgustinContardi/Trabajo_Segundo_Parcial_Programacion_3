@@ -7,10 +7,13 @@ lógica.
 
 ## Integrantes
 
-> Completar con nombres y apellidos antes de la entrega (queda pendiente hasta C-22, el change del zip).
+Grupo **AURA**
 
-- _(integrante 1)_
-- _(integrante 2)_
+- Enzo Giaquinta
+- Agustin Contardi
+- Fernando Torrez
+- Ramiro Salcedo
+- Ignacio Sanchez
 
 ## Requisitos
 
@@ -65,13 +68,22 @@ Todos los comandos se corren **dentro de `parcial/`**.
    Alembic; `alembic current` debe mostrar la revisión de 0005 como `(head)`
    y `alembic check` no debe detectar diferencias.
 
-5. Levantar la API:
+5. Cargar los datos iniciales (la semilla **vacía la base** antes de cargar los
+   datos: no correrla sobre una base con información que se quiera conservar):
+
+   ```powershell
+   python seed.py
+   ```
+   La semilla deja siempre el mismo estado: libros 1–5, venta 1 y un stock
+   coherente con sus movimientos. No toca `alembic_version`.
+
+6. Levantar la API:
 
    ```powershell
    uvicorn main:app --reload
    ```
 
-6. Comprobar la salud:
+7. Comprobar la salud:
 
    ```powershell
    Invoke-RestMethod http://127.0.0.1:8000/health/live

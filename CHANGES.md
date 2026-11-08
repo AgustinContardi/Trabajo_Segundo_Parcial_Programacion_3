@@ -964,7 +964,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-22] entrega-zip-y-autoevaluacion
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado (2026-11-08) — READMEs con grupo **AURA** e integrantes, evidencia `.http`, clean-room local, paridad VPS Python 3.12/PostgreSQL 16 y autoevaluación. Zip `Parcial_Cap1a6_AURA.zip` generado fuera del repo desde el commit final. Archivado en `openspec/changes/archive/2026-11-08-c-22-entrega-zip-y-autoevaluacion/`.
 - **Scope**:
   - `parcial/README.md` con **nombres y apellidos** de los integrantes y los pasos desde cero: entorno
     virtual, dependencias, `.env` explicando **cómo generar la clave de firma**, `alembic upgrade head`,

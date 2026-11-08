@@ -1,0 +1,334 @@
+
+
+---------------------
+
+
+
+=== C-03.1 ┬À login correcto -> 200 + cookie HttpOnly, cuerpo sin token ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 86
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+set-cookie: access_token=<jwt-redacted>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+
+
+
+{
+
+  "mensaje": "Sesi├│n iniciada",
+
+  "debe_cambiar_password": false,
+
+  "expira_en_segundos": 1800
+
+}
+
+
+
+---------------------
+
+
+
+=== C-03.2 ┬À /auth/yo sin cookie -> 401 ===
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 27
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "No autenticado"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-03.3 ┬À /auth/yo con `Authorization: Bearer <token inventado>` -> 401 ===
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 27
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "No autenticado"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-04.1 ┬À correo existente con contrase├▒a incorrecta -> 401 ===
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 36
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Credenciales inv├ílidas"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-04.2 ┬À correo inexistente -> 401 con el MISMO cuerpo y tiempo comparable ===
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 36
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Credenciales inv├ílidas"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-05 ┬À intentos 1 a 5 -> 401 cada uno (se procesan y se registran) ===
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 36
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Credenciales inv├ílidas"
+
+}
+
+
+
+---------------------
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 36
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Credenciales inv├ílidas"
+
+}
+
+
+
+---------------------
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 36
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Credenciales inv├ílidas"
+
+}
+
+
+
+---------------------
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 36
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Credenciales inv├ílidas"
+
+}
+
+
+
+---------------------
+
+
+
+HTTP/1.1 401  - Unauthorized
+
+content-length: 36
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Credenciales inv├ílidas"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-05 ┬À sexto intento -> 429 + Retry-After en milisegundos ===
+
+
+
+HTTP/1.1 429  - Too Many Requests
+
+content-length: 53
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+retry-after: 59957
+
+server: uvicorn
+
+
+
+{
+
+  "detail": "Demasiados intentos de inicio de sesi├│n"
+
+}
+
+
+
+---------------------
+
+
+
+=== C-03 ┬À logout -> 200 + Set-Cookie con Max-Age=0 ===
+
+
+
+HTTP/1.1 200  - OK
+
+content-length: 29
+
+content-type: application/json
+
+date: Sun, 08 Nov 2026 23:10:43 GMT
+
+server: uvicorn
+
+set-cookie: access_token=""; expires=Sun, 08 Nov 2026 23:10:44 GMT; HttpOnly; Max-Age=0; Path=/; SameSite=lax
+
+
+
+{
+
+  "mensaje": "Sesi├│n cerrada"
+
+}
+
+
+
+12 requests processed (12 succeeded)
+
