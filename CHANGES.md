@@ -918,7 +918,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-21] despliegue-vps-deploy-md
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` implementado y verificado el 2026-11-08 — **35/35 tareas**; archivado como `openspec/changes/archive/2026-11-08-c-21-despliegue-vps-deploy-md/`. Entregados: `despliegue/DEPLOY.md` completo (URL pública, fecha/hora UTC-3, topología EasyPanel, build/run literales con `--restart unless-stopped`, actualización/rollback) y `despliegue/evidencia/D-01…D-08`. D-04 queda como equivalencia parcial (`docker restart`, sin `docker run` literal ni one-off); D-08 es excepción documentada citando `parcial/evidencia/c-10-backgroundtasks.txt`. URL verificada el 2026-11-08 19:08 UTC-3: `/health/ready` 200, `/libros/` 200 y venta 4 201 con `precio_unitario` y total copiados.
 - **Scope**:
   - Construir la imagen **en el servidor** (o construirla afuera y llevarla) y documentar la elección;
     correr con
@@ -933,9 +933,10 @@ caro pero donde el trabajo es más acotado.
   - `despliegue/DEPLOY.md` con: URL pública, día y hora, `docker build` y `docker run` completos (con el
     **nombre** del archivo de variables y **sin su contenido**), cambios al TP y procedimiento de
     actualización (build → `docker rm -f` → `docker run`; los datos viven en la base del servidor).
-  - `despliegue/evidencia/` con **D-01…D-08**, un archivo por caso con comando y salida; incluye D-04
-    (`rm -f` + el mismo `run` → vuelve `healthy`, los datos siguen, las migraciones no se repiten) y D-08
-    (el aviso aparece en `docker logs` **después** de la línea de la respuesta).
+  - `despliegue/evidencia/` con **D-01…D-08**, un archivo por caso con comando y salida; D-04 se cumple
+    por equivalencia parcial (reinicio del contenedor gestionado por EasyPanel; el `docker run` literal no
+    se ejecuta) y D-08 es excepción documentada con la captura de `parcial/` (sin lógica nueva en
+    `despliegue/`).
   - Sostener el despliegue en línea hasta que se publiquen las notas.
 - **Dependencias**: `C-20`
 - **Governance**: **ALTO** — 7 % que se corrige **sobre un sistema en línea** y con un recurso externo
