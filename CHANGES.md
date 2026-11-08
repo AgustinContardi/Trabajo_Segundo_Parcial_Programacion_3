@@ -881,13 +881,14 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-20] imagen-docker-tp-cap1a4
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[~]` en curso — **20/27 tareas**. Ya entregados: `despliegue/Dockerfile`, `.dockerignore`, `env.example` (contrato `POSTGRES_*`) y `DEPLOY.md`. **Pendiente (7 tareas, requieren Docker):** build `--no-cache`, run/healthy, D-05, DB vacía y la evidencia **D-01/D-06/D-07**. Se cierran en el VPS durante **C-21** (el roadmap permite construir la imagen en el servidor). No archivar hasta producirlas. Correcciones aplicadas: `CMD` usa `uvicorn main:app` (no `app.main:app`); variables `POSTGRES_*` (el TP no lee `DATABASE_URL`).
 - **Scope**:
   - `despliegue/Dockerfile` desde `python:3.12-alpine`: `COPY requirements.txt` + `pip install
     --no-cache-dir -r requirements.txt` **antes** de copiar el código; usuario sin privilegios creado con
     `addgroup`/`adduser` y activado con `USER` (nunca root); `EXPOSE 8000`.
-  - `CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]`: si la
-    base no responde, el contenedor termina con error.
+  - `CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]`: si la
+    base no responde, el contenedor termina con error. *(Corregido: el TP tiene `main.py` en la raíz de
+    `despliegue/`, no `app/main.py`; `app.main:app` falla con `ModuleNotFoundError`.)*
   - `HEALTHCHECK` con `wget -qO- http://127.0.0.1:8000/health/ready || exit 1` — **`127.0.0.1`, nunca
     `localhost`** (en Alpine `wget` resuelve `localhost` a `::1` y uvicorn escucha IPv4).
   - `despliegue/.dockerignore` con `.env`, `.venv/`, `.git/`, `__pycache__/` y el resto de la higiene.

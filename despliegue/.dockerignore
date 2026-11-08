@@ -1,0 +1,29 @@
+# Contexto de build: despliegue/. Menos contexto, menos capas, menos filtración.
+#
+# Mínimo exigido por la consigna: .env, .venv, .git y __pycache__.
+# NO se excluyen requirements.txt, alembic.ini, migrations/, app/, main.py,
+# seed.py ni env.example: la imagen los necesita para instalar, migrar, arrancar
+# y (en C-21) cargar los datos iniciales con seed.py.
+
+# Secretos y entorno local
+.env
+.env.*
+.venv/
+venv/
+
+# Historial y metadatos de git
+.git/
+.gitignore
+
+# Cachés de Python y de herramientas
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Pruebas y documentación
+test/
+tests/
+*.md
+!README.md
