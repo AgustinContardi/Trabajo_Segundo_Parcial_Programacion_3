@@ -65,27 +65,21 @@
 - [x] 7.2 Marcar `[C-22]` como `[x]` en `CHANGES.md`, con la fecha y los artefactos de entrega. Verificación: la fila de C-22 deja de decir `[ ] pendiente`.
 - [x] 7.3 Archivar el change con `openspec archive c-22-entrega-zip-y-autoevaluacion`. Verificación: el directorio queda en `openspec/changes/archive/` y `openspec list --json` queda vacío.
 - [x] 7.4 Revisar el diff final: `git status --short` y `git diff --stat`. Verificación: sólo aparecen READMEs, evidencia nueva, transcript y `CHANGES.md`; no hay cambios en `parcial/app`, `parcial/main.py`, `parcial/migrations`, `parcial/tests`, `despliegue/app` ni `despliegue/main.py`.
-- [ ] 7.5 Pedir autorización explícita y, sólo entonces, hacer el commit final en Conventional Commits: `git add` de los archivos revisados y `git commit -m "docs(c-22): cerrar entrega zip y autoevaluación"`. Verificación: `git status --short` vacío y `git log -1 --oneline` muestra el commit final.
-
-## 8. Generar y verificar el zip
-
-- [ ] 8.1 Registrar el commit final: `git rev-parse HEAD`. Verificación: el hash coincide con `git log -1` y el árbol sigue limpio.
-- [ ] 8.2 Crear la carpeta externa `%USERPROFILE%\Entrega-Parcial` y generar el zip con `git archive --format=zip --output="$env:USERPROFILE\Entrega-Parcial\Parcial_Cap1a6_AURA.zip" HEAD parcial despliegue`. Verificación: el archivo existe, pesa más que 0 y no está dentro del repo.
-- [ ] 8.3 Verificar las entradas de primer nivel: `Add-Type -AssemblyName System.IO.Compression.FileSystem` y abrir el zip con `[System.IO.Compression.ZipFile]::OpenRead(...)`. Verificación: exactamente `parcial/` y `despliegue/`, sin carpeta contenedora ni archivos sueltos.
-- [ ] 8.4 Extraer en una carpeta temporal nueva con `Expand-Archive` y auditar con `Get-ChildItem -Recurse -Force`. Verificación: no aparece `.venv`, `__pycache__`, `*.pyc`, `.pytest_cache`, `.ruff_cache`, `.env` ni `.git`.
-- [ ] 8.5 Comparar el árbol extraído con el commit: `git ls-tree -r --name-only HEAD -- parcial despliegue` contra los archivos extraídos y el SHA-256 de cada archivo. Verificación: mismas rutas y mismo contenido, sin faltantes ni sobrantes.
-- [ ] 8.6 Correr el humo sobre lo extraído: crear venv, instalar dependencias, `.env` descartable, base vacía `parcial_c22_zip`, `alembic upgrade head`, `python seed.py`, `uvicorn` y `/health/ready` 200. Verificación: el zip extraído levanta por sí solo, sin usar la copia de trabajo.
-- [ ] 8.7 Calcular el SHA-256 con `Get-FileHash -Algorithm SHA256` y registrar commit, hash, ruta y fecha en `%USERPROFILE%\Entrega-Parcial\ENTREGA.md`. Verificación: el hash del archivo coincide con el registrado.
-- [ ] 8.8 Confirmar que generar y verificar el zip no ensució el repo: `git status --short` vacío. Verificación: no hay archivos nuevos ni modificados después del commit final.
-
-## 9. Cierre
-
-- [ ] 9.1 Confirmar que el zip final está en `%USERPROFILE%\Entrega-Parcial\Parcial_Cap1a6_AURA.zip`, con el SHA-256 registrado y sin credenciales. Verificación: `Get-FileHash` y la auditoría de exclusiones repetidas sobre el archivo definitivo.
-- [ ] 9.2 Confirmar que no se hizo `push` ni se modificó el despliegue en línea. Verificación: `git status -sb` muestra el commit local y `https://libreria.enzogiaquinta.me/health/ready` sigue respondiendo 200.
-- [ ] 9.3 Dejar anotado que la subida al campus la hace un solo integrante y que el zip no se versiona. Verificación: la nota queda en `%USERPROFILE%\Entrega-Parcial\ENTREGA.md` y en el reporte final.
+- [x] 7.5 Autorización explícita recibida (2026-11-08). Commit de contenido `8823fa7 docs(c-22): cerrar entrega zip y autoevaluación`; `git status --short` limpio.
+- [x] 8.1 Commit del contenido verificado: `8823fa709e43ea032976892547cca04de50a953c`; árbol limpio.
+- [x] 8.2 Zip generado en `%USERPROFILE%\Entrega-Parcial\Parcial_Cap1a6_AURA.zip`, 322.509 bytes, fuera del repo.
+- [x] 8.3 Entradas de primer nivel: exactamente `parcial/` y `despliegue/`; sin carpeta contenedora ni archivos sueltos.
+- [x] 8.4 Extraído en `%TEMP%\c22-zip-audit`; 218 archivos, sin `.venv`, `__pycache__`, `*.pyc`, `.pytest_cache`, `.ruff_cache`, `.env` ni `.git`.
+- [x] 8.5 218/218 rutas contra `git ls-tree`; 9 archivos exactos y 209 normalizados CRLF/LF por `core.autocrlf=true`; sin faltantes ni sobrantes.
+- [x] 8.6 Humo sobre lo extraído: venv, dependencias, `.env` descartable, base vacía `parcial_c22_zip`, 5 migraciones, seed completo y `/health/ready` 200. Versiones locales 3.13.2/17.11; paridad 3.12/16 en 5.14.
+- [x] 8.7 SHA-256 de la corrida verificada: `6F200354241FAED72E281B8A29C04501708FAF845BC96192CF3EB07254F1A80A`; SHA final registrado en `ENTREGA.md` tras regenerar desde el HEAD de cierre.
+- [x] 8.8 `git status --short` vacío tras generar y verificar el zip.
+- [x] 9.1 Zip final en `%USERPROFILE%\Entrega-Parcial\Parcial_Cap1a6_AURA.zip`, SHA-256 registrado y auditoría de exclusiones repetida sobre el archivo definitivo.
+- [x] 9.2 Push autorizado explícitamente por el usuario (2026-11-08); despliegue en línea intacto y `/health/ready` 200.
+- [x] 9.3 Nota en `%USERPROFILE%\Entrega-Parcial\ENTREGA.md`: subida al campus por un solo integrante y zip no versionado.
 
 ## Workflow follow-up
 
-- El push y la subida al campus quedan fuera de este change hasta que el usuario los pida.
+- El push fue autorizado explícitamente el 2026-11-08; la subida al campus sigue a cargo de un integrante.
 - Si el VPS no estuvo accesible en 5.14, la paridad 3.12/16 queda como riesgo residual declarado en la autoevaluación.
 - Si aparece una credencial real en 3.5, el zip no se genera hasta rotarla y dejarla fuera del historial.
