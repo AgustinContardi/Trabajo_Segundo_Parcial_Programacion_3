@@ -91,7 +91,7 @@ async def registrar_venta(
     (`CV-08`): cliente → libros existentes → libros vigentes → stock agregado
     por libro → renglón repetido → escritura. El `except` vive **fuera** del
     bloque para que `__aexit__` revierta las escrituras parciales antes de
-    traducir el error (CV-02).
+    traducir el error (CV-01).
     """
     ids = [renglon.libro_id for renglon in dto.renglones]
     # Los ids repetidos se colapsan sólo para consultar y sumar stock; la

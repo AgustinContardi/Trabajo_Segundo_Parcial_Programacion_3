@@ -32,6 +32,13 @@ async def listar_generos(
     return await service.listar(uow, page, size)
 
 
+@router.get("/{genero_id}", response_model=GeneroRead)
+async def obtener_genero(
+    genero_id: int, uow: GenerosUnitOfWork = Depends(get_generos_uow)
+):
+    return await service.obtener(uow, genero_id)
+
+
 @router.get("/{genero_id}/libros", response_model=list[LibroRead])
 async def libros_de_genero(
     genero_id: int, uow: GenerosUnitOfWork = Depends(get_generos_uow)

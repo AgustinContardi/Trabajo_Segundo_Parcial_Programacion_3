@@ -1,0 +1,50 @@
+C-10 · El aviso del comprobante (BackgroundTasks) ocurre DESPUÉS de la respuesta
+==============================================================================
+Entorno: PostgreSQL 17 real (127.0.0.1:5432/libreria), `python seed.py` recién corrido,
+servidor arrancado SIN configuración extra de logging:
+
+  cd parcial
+  python -u -m uvicorn main:app --host 127.0.0.1 --port 8000
+
+`-u` sólo desactiva el buffer de stdout para que la consola no reordene líneas al
+redirigirla; no se toca `--log-config` ni ninguna variable de logging de la app.
+
+Petición registrada (equivalente a test/ventas.http C-10.1):
+  POST /ventas/  {"cliente_id":1,"renglones":[{"libro_id":1,"cantidad":1},
+                                   {"libro_id":3,"cantidad":1}]}
+
+Lectura: la línea del access log de la respuesta 201 aparece ANTES de la línea del
+comprobante. `avisar_comprobante` duerme 0.5 s en la tarea de fondo; la respuesta no
+esperó ese medio segundo.
+
+Método: corrida equivalente con httpx (REST Client es GUI y no corre headless).
+Fecha: 2026-11-08. Base: libreria
+==============================================================================
+
+INFO:     Started server process [6752]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:21790 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21790 - "POST /auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21792 - "POST /ventas/ HTTP/1.1" 201 Created
+Comprobante de la venta 2 enviado al cliente
+INFO:     127.0.0.1:21793 - "POST /ventas HTTP/1.1" 201 Created
+Comprobante de la venta 3 enviado al cliente
+INFO:     127.0.0.1:21794 - "GET /ventas/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21795 - "POST /ventas/ HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:21796 - "POST /ventas/ HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:21797 - "POST /ventas/ HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:21798 - "POST /libros/ HTTP/1.1" 201 Created
+INFO:     127.0.0.1:21799 - "DELETE /libros/6 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:21800 - "POST /ventas/ HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:21801 - "POST /ventas/ HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:21804 - "POST /ventas/ HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:21805 - "POST /ventas/ HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:21806 - "POST /ventas/ HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:21807 - "POST /ventas/ HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:21808 - "POST /ventas/ HTTP/1.1" 422 Unprocessable Content
+INFO:     127.0.0.1:21809 - "POST /ventas/ HTTP/1.1" 201 Created
+Comprobante de la venta 4 enviado al cliente
+INFO:     127.0.0.1:21810 - "GET /ventas/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21813 - "GET /health HTTP/1.1" 404 Not Found

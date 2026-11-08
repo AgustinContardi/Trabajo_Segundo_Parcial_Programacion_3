@@ -9,9 +9,9 @@ Contrato de este módulo:
   petición** y la cierra en `finally` (también si la petición falla).
 - El esquema **no** se crea desde acá: sólo Alembic (`CV-14`). La aplicación
   nunca crea ni modifica tablas al arrancar.
-- Los repositorios harán `flush()`, nunca `commit()` (`CV-02`); el `commit` es
+- Los repositorios harán `flush()`, nunca `commit()` (`CV-01`); el `commit` es
   del `__aexit__` del Unit of Work (`CV-01`).
-- Toda precarga vive en `repository.py` (`CV-03`).
+- Toda precarga vive en `repository.py` (`CV-02`).
 """
 
 from collections.abc import AsyncGenerator

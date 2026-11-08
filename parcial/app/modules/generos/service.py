@@ -1,4 +1,9 @@
-"""Lógica de negocio del módulo `generos`."""
+"""Lógica de negocio del módulo `generos`.
+
+Contrato de errores (CV-08): el orden es **404 → 409 → 422**. `obtener` y
+`libros_de` sólo producen 404; `crear` traduce el nombre duplicado
+(`genero_nombre_key`) a 409 y la validación del schema a 422.
+"""
 
 from typing import List
 

@@ -210,6 +210,7 @@ RUTAS_CATALOGO_ESPERADAS = {
     ("GET", "/editoriales/{editorial_id}/libros"),
     ("POST", "/generos/"),
     ("GET", "/generos/"),
+    ("GET", "/generos/{genero_id}"),
     ("GET", "/generos/{genero_id}/libros"),
     ("POST", "/autores/"),
     ("GET", "/autores/"),

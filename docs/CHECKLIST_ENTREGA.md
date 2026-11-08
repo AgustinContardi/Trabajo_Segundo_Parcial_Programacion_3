@@ -31,7 +31,7 @@
 - [ ] `app/modules/{health,usuarios,clientes,editoriales,generos,autores,libros,ventas}/`, y cada uno (salvo `health`) con las seis capas `models.py`, `schemas.py`, `repository.py`, `unit_of_work.py`, `service.py`, `router.py` — *verificar:* `for m in app/modules/*; do ls $m; done` — *fuente:* CV-03, consigna p.8-9.
 - [ ] `health` sólo tiene `router.py` — *verificar:* `ls app/modules/health` — *fuente:* CV-13, consigna p.9.
 - [ ] Entidades en su módulo obligatorio: `AsignacionRol`/`IntentoAcceso`/`EventoSeguridad` en `usuarios`, `MovimientoStock` y `LibroAutor` en `libros`, `PerfilCliente` en `clientes`, `RenglonVenta` en `ventas` — *verificar:* `grep -rn "class \(AsignacionRol\|IntentoAcceso\|EventoSeguridad\|MovimientoStock\|LibroAutor\|PerfilCliente\|RenglonVenta\)" app/modules` — *fuente:* consigna p.9.
-- [ ] `migrations/` con `env.py` y `versions/`, y `alembic history` lista las cuatro versiones — *verificar:* `ls migrations/versions; alembic history` — *fuente:* consigna p.9-10.
+- [ ] `migrations/` con `env.py` y `versions/`, y `alembic history` lista las cinco versiones - *verificar:* `ls migrations/versions; alembic history` - *fuente:* consigna p.9-10.
 - [ ] `test/` tiene los `.http` de los casos C y `solo_agregado.sql`; `tests/` tiene **sólo** pytest, sin `.http` ni `.sql` sueltos — *verificar:* `ls test tests` — *fuente:* CV-04, RD-01, consigna p.9, p.21.
 - [ ] `env.example` (sin punto inicial) y `.gitignore` con `.env` — *verificar:* `ls -a | Select-String env` — *fuente:* CV-05, consigna p.4, p.24.
 - [ ] La aplicación **no** usa `create_all` — *verificar:* `grep -rn "create_all" . --include=*.py` (vacío) — *fuente:* CV-14, consigna p.10, p.20.
@@ -45,20 +45,21 @@
 - [ ] `alembic.ini` sin `sqlalchemy.url` con credenciales (`migrations/env.py` lee de `Settings`), y `.env` existe en la máquina pero **no** está versionado ni entra al zip — *verificar:* `grep -n "sqlalchemy.url" alembic.ini migrations/env.py`, `git check-ignore .env` y `git ls-files | Select-String "^\.env$"` (vacío) — *fuente:* CV-06, consigna p.4, p.20, p.24.
 ## 3. Migraciones
 
-- [ ] Hay **exactamente cuatro** versiones: las dos del TP + una autogenerada + una escrita a mano — *verificar:* `ls migrations/versions` — *fuente:* consigna p.2, p.10.
+- [ ] Hay **exactamente cinco** versiones: las dos del TP + una autogenerada + una escrita a mano (0004) + una correctiva (0005) — *verificar:* `ls migrations/versions` — *fuente:* consigna p.2, p.10.
 - [ ] La tercera se generó con `--autogenerate` y trae las 4 tablas de acceso, `movimiento_stock`, `cliente.usuario_id`, `libro.borrado_en` y los **dos** índices únicos parciales — *verificar:* leer la migración y contar las 8 piezas — *fuente:* consigna p.10.
-- [ ] Cada migración nueva lleva un comentario que dice que se leyó antes de aplicarla y qué se corrigió a mano — *verificar:* `head -30 migrations/versions/0003_*.py migrations/versions/0004_*.py` — *fuente:* consigna p.10.
+- [ ] Cada migración nueva lleva un comentario que dice que se leyó antes de aplicarla y qué se corrigió a mano — *verificar:* `head -30 migrations/versions/0003_*.py migrations/versions/0004_*.py migrations/versions/*_0005_*.py` — *fuente:* consigna p.10.
 - [ ] La cuarta es manual y crea **función + disparador** de sólo agregado sobre `movimiento_stock`, con `downgrade` que borra los dos — *verificar:* `grep -n "CREATE TRIGGER\|DROP TRIGGER\|DROP FUNCTION" migrations/versions/0004_*.py` — *fuente:* RN-12, consigna p.10, p.12.
+- [ ] La quinta (`<rev>_0005_now_server_defaults.py`) deja `now()` evaluado por la base en `asignacion_rol.desde`, `intento_acceso.cuando`, `evento_seguridad.cuando`, `movimiento_stock.cuando` y `venta.fecha`, sin reescribir filas históricas — *verificar:* `SELECT pg_get_expr(adbin, adrelid) FROM pg_attrdef …` devuelve `now()` en las cinco, o `\d asignacion_rol` muestra `now()` en `desde` — *fuente:* C-04, regla 9.
 - [ ] `upgrade head` → `downgrade base` → `upgrade head` sobre base vacía sin error, y `alembic check` no detecta diferencias entre modelos y esquema — *verificar:* `alembic upgrade head; alembic downgrade base; alembic upgrade head; alembic check` — *fuente:* CV-10, consigna p.10, rúbrica p.23.
 - [ ] Toda FK nueva tiene índice, las fechas nuevas son `timestamptz` y el dinero es `NUMERIC` — *verificar:* `\d asignacion_rol`, `\d movimiento_stock`, `\d+ libro`, `\d+ venta` en `psql` — *fuente:* consigna p.6.
 ## 4. Modelo de datos
 
 - [ ] Nombres de tablas y columnas **exactamente** los impresos; ninguna renombrada ni faltante — *verificar:* `\dt` y `\d <tabla>` contra la tabla de consigna p.5-6 — *fuente:* consigna p.4.
 - [ ] `usuario` tiene `id, email, nombre, password_hash, activo, debe_cambiar_password`, con `email` **UNIQUE** y **ninguna columna `rol`** — *verificar:* `\d usuario` y `grep -rn "rol" app/modules/usuarios/models.py` — *fuente:* consigna p.5-6, RN-01.
-- [ ] `asignacion_rol` tiene las **8** columnas (`id, usuario_id, rol, desde, vence_en, revocada_en, otorgada_por`) y `CHECK (rol IN ('ADMIN','VENDEDOR','CLIENTE'))` — *verificar:* `\d asignacion_rol` — *fuente:* consigna p.5.
+- [ ] `asignacion_rol` tiene las **7** columnas (`id, usuario_id, rol, desde, vence_en, revocada_en, otorgada_por`) y `CHECK (rol IN ('ADMIN','VENDEDOR','CLIENTE'))` — *verificar:* `\d asignacion_rol` — *fuente:* consigna p.5.
 - [ ] `asignacion_rol` tiene índice único parcial `(usuario_id, rol) WHERE revocada_en IS NULL` — *verificar:* `\d asignacion_rol` y `grep -n "postgresql_where" app/modules/usuarios/models.py` — *fuente:* RN-03, consigna p.5.
 - [ ] `libro.borrado_en` existe (`timestamptz`, nulo), `isbn` **ya no** es `UNIQUE` común sino índice único parcial `(isbn) WHERE borrado_en IS NULL`, y se conservan `CHECK (precio > 0)` y `CHECK (stock >= 0)` — *verificar:* `\d libro` (sin `libro_isbn_key`) — *fuente:* RN-01, RN-13, consigna p.5-6.
-- [ ] `cliente.usuario_id` existe, admite nulo y es `UNIQUE` — *verificar:* `\d cliente` — *fuente:* consigna p.2, p.5.
+- [ ] `cliente.usuario_id` existe, admite nulo y es `UNIQUE` **por doble vía**: la restricción `uq_cliente_usuario_id` y el índice único `ix_cliente_usuario_id` (ambos del baseline del TP); no se elimina ninguno — *verificar:* `\d cliente` — *fuente:* consigna p.2, p.5.
 - [ ] `Cliente.usuario` devuelve un objeto y no una lista, con la navegación declarada en los dos extremos — *verificar:* leer las relaciones de `Cliente` y `Usuario` en `models.py` — *fuente:* consigna p.6, p.10.
 - [ ] `movimiento_stock` tiene las **7** columnas (`id, libro_id, venta_id, usuario_id, cantidad, motivo, cuando`), con `venta_id` nulo y `CHECK (cantidad <> 0)` — *verificar:* `\d movimiento_stock` — *fuente:* RN-12, consigna p.6.
 - [ ] `intento_acceso` tiene `id, cuando, email, ip, exito` e índice `(email, ip, cuando)` — *verificar:* `\d intento_acceso` — *fuente:* consigna p.5.
@@ -81,7 +82,7 @@
 - [ ] Con `debe_cambiar_password = true` todo el grupo protegido da **403** y sólo pasan `/auth` y las rutas abiertas — *verificar:* `.http` de C-09 con `nuevo@example.com` — *fuente:* RN-06, consigna p.7, p.12.
 ## 6. Autorización
 
-- [ ] `requiere_rol` consulta `asignacion_rol` en **cada** petición y no confía en el claim `roles` — *verificar:* `grep -n "AsignacionRol" app/core/dependencies.py` y C-07 — *fuente:* RN-04, consigna p.11.
+- [ ] `requiere_rol` consulta `asignacion_rol` en **cada** petición y no confía en el claim `roles` — *verificar:* `grep -n "roles_vigentes" app/core/dependencies.py` y `grep -n "AsignacionRol" app/modules/usuarios/repository.py` — *fuente:* RN-04, consigna p.11.
 - [ ] Revocar un rol quita el permiso a una sesión ya abierta (sin esperar el vencimiento del token) y una asignación con `vence_en <= now()` no otorga permiso — *verificar:* `.http` de C-07 con la misma cookie, más un vencimiento cercano reintentado después — *fuente:* RN-04, consigna p.11, AB-10.
 - [ ] Un vencimiento en el pasado o sin zona horaria da **422**, no 409 — *verificar:* `.http` de C-07 con las dos fechas inválidas — *fuente:* consigna p.11, p.21.
 - [ ] Reasignar un rol vencido cierra la fila anterior y abre una nueva; la fila revocada **nunca se borra** — *verificar:* `SELECT * FROM asignacion_rol` antes y después (C-07) — *fuente:* RN-03, consigna p.11.
@@ -173,7 +174,7 @@
 ## 12. Formato de entrega
 
 - [ ] El archivo se llama `Parcial_Cap1a6_<NombreDelGrupo>.zip`, lo sube un solo integrante y contiene **dos** carpetas: `parcial/` y `despliegue/` — *verificar:* nombre del archivo en el campus y extracción en carpeta temporal — *fuente:* consigna p.1, p.24, IN-04.
-- [ ] `parcial/` trae código fuente, `requirements.txt`, `env.example`, `alembic.ini`, `migrations/`, `test/`, `README.md` y `evidencia/`, y esa `evidencia/` tiene la captura de C-15 (consultas con 2 y con 4 renglones) y la de `psql` de C-14 — *verificar:* `ls parcial parcial/evidencia` — *fuente:* consigna p.24.
+- [ ] `parcial/` trae código fuente, `requirements.txt`, `env.example`, `alembic.ini`, `migrations/`, `test/`, `README.md` y `evidencia/`, y esa `evidencia/` tiene las **tres capturas críticas**: C-10 (`BackgroundTasks`), C-14 (`solo_agregado`) y C-15 (consultas con 2 y con 4 renglones) — *verificar:* `ls parcial parcial/evidencia` — *fuente:* consigna p.24.
 - [ ] `despliegue/` trae el TP cap. 1-4 + `Dockerfile` + `.dockerignore` + `env.example` (forma de `DATABASE_URL`, sin valores) + `DEPLOY.md` + `evidencia/` — *verificar:* `ls despliegue` — *fuente:* consigna p.24, IN-04.
 - [ ] El zip **no** contiene `.venv`, `__pycache__` ni `.env` en **ninguna** de las dos carpetas — *verificar:* `Get-ChildItem -Recurse -Force` sobre lo extraído, buscando `.venv`, `__pycache__` y `.env` — *fuente:* consigna p.1, p.24.
 - [ ] `parcial/README.md` tiene nombres y apellidos y los pasos desde cero: venv, dependencias, `.env` con cómo generar la clave de firma, `alembic upgrade head`, `python seed.py` y arranque — *verificar:* leer el README — *fuente:* consigna p.24.

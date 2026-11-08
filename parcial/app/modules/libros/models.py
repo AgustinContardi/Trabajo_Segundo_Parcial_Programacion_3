@@ -159,7 +159,7 @@ class MovimientoStock(SQLModel, table=True):
     motivo: str = Field(sa_column=Column("motivo", String, nullable=False))
     cuando: datetime = Field(
         sa_column=Column(
-            "cuando", DateTime(timezone=True), nullable=False, server_default="now()"
+            "cuando", DateTime(timezone=True), nullable=False, server_default=text("now()")
         )
     )
 

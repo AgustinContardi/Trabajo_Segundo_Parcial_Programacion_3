@@ -847,6 +847,32 @@ caro pero donde el trabajo es más acotado.
 
 ---
 
+### [FIX-AUDITORIA-FINAL] correcciones de la auditoría C-01…C-19
+
+- **Estado**: `[x]` cerrado — entrada **correctiva** que no renumera `C-01…C-22` ni cambia sus
+  estados (2026-11-08; archivada como 2026-11-08-fix-auditoria-final). Fuente: `docs/auditoria-final/INFORME-FINAL.md` (2 FAIL, 32 WARN).
+- **2 FAIL cerrados**:
+  - **C-04** — los cinco `DEFAULT` de fecha (`asignacion_rol.desde`, `intento_acceso.cuando`,
+    `evento_seguridad.cuando`, `movimiento_stock.cuando`, `venta.fecha`) estaban congelados con la
+    hora del DDL. Migración nueva `0005` (`<rev>_0005_now_server_defaults.py`) con
+    `SET DEFAULT now()`; los modelos pasan a `server_default=text("now()")`. Sin reescribir filas
+    históricas.
+  - **C-10** — `GET /mis-ventas` responde `200` en su path canónico (router propio sin prefijo,
+    montado en el grupo protegido) y `GET /ventas/mis-ventas` deja de publicarse en `openapi.json`.
+- **Mayores**: **C-08/C-09** (el `usuario_id` de «Stock inicial»/«Reposición» es el actor
+  autenticado; se elimina el fallback `SELECT id FROM usuario LIMIT 1`), **C-07** (paginación
+  determinista por `Venta.id` en las ventas del cliente), **C-06** (`GET /generos/{id}`, se acota el
+  `409` de `PATCH /autores` a las unicidades realmente declaradas y se unifica `CV-01/02/03` con la
+  KB), **C-05** (mensajes de `bool_type`/`float_type`/`decimal_parsing` y comentarios `CV-08`).
+- **Menores**: **C-14** (prueba real 401 → 403 en lugar del test vacío) y **C-15** (`cerrar()`
+  documentado con el reloj de la aplicación en UTC).
+- **Documentación**: `parcial/README.md` (cinco migraciones), `docs/CHECKLIST_ENTREGA.md` (§3, §4,
+  §6.1, §12), `parcial/test/roles.http` (C-06.6 y C-07.11 reproducibles) y
+  `parcial/evidencia/c-10-backgroundtasks.txt`.
+- **Fuera de alcance**: `C-20`, `C-21`, `C-22` y `despliegue/`.
+
+---
+
 ## FASE 10 — Despliegue (vía paralela)
 
 > 18 % de la nota y **otro proyecto**: se empaqueta el TP cap. 1-4 *tal como se entregó*. Su lógica no se

@@ -32,12 +32,14 @@
 @nuevo_password = nuevo-ficticia-2024
 @nuevo_password_nueva = nuevo-nueva-2024
 
-# Vencimiento para C-07.5.
-# `@vence_en_corto` DEBE quedar pocos segundos en el futuro al correr el
-# bloque (p. ej. `2026-11-08T15:30:05Z`). Con la fecha de ejemplo (2030) el
-# rol sigue vigente y C-07.7 devuelve 200: eso no es un fallo del servidor,
-# es que el vencimiento todavía no ocurrió.
-@vence_en_corto = 2030-01-01T00:00:00Z
+# Vencimiento para C-07.9 → C-07.11.
+# `@vence_en_corto` se calcula al vuelo como `now() + 1 minuto` con la variable
+# dinámica de REST Client (unidades: y M w d h m s); así el bloque es
+# reproducible sin editar valores a mano. Con un literal fijo en 2030 el rol
+# sigue vigente y C-07.11 devuelve 200: no es un fallo del servidor, es que el
+# vencimiento todavía no ocurrió. Entre C-07.10 y C-07.11 hay que **esperar**
+# a que pase ese minuto y repetir con la misma cookie de `login_ana_rol`.
+@vence_en_corto = {{$datetime iso8601 1 m}}
 
 # ---------------------------------------------------------------------------
 # Sesiones simultáneas
@@ -141,6 +143,15 @@ Cookie: {{login_ana.response.headers.Set-Cookie}}
 GET {{host}}/ventas/1
 Cookie: {{login_ana.response.headers.Set-Cookie}}
 
+### C-06.6 · Ana lista sus ventas en el path canónico `GET /mis-ventas` -> 200
+# Esperado: 200 con el envoltorio {items,total,page,size,pages}; todos los
+# `cliente_id` son 3 y no aparece la venta de Lucía. La ruta anterior con el
+# prefijo `/ventas` responde 404 (ya no se publica).
+# RN-14.
+# @no-cookie-jar
+GET {{host}}/mis-ventas
+Cookie: <redacted>
+
 # ---------------------------------------------------------------------------
 # C-07 · Revocación y vencimiento con la cookie ya emitida
 # ---------------------------------------------------------------------------
@@ -232,7 +243,8 @@ Cookie: {{login_admin.response.headers.Set-Cookie}}
 }
 
 ### C-07.9 · vence_en válido (zona + futuro) -> 201
-# ANTES DE CORRER: reemplazar `@vence_en_corto` por una hora 2 s en el futuro.
+# `@vence_en_corto` ya viene calculado como now() + 1 minuto (variable
+# dinámica de REST Client): no hay que editarlo a mano.
 # Esperado: 201 {"id":<nuevo>,"usuario_id":4,"rol":"VENDEDOR","desde":...,
 #   "vence_en":"<la enviada>","revocada_en":null,"otorgada_por":1}
 # RN-03, RN-16.
@@ -260,7 +272,8 @@ Content-Type: application/json
 }
 
 ### C-07.11 · pasada la fecha de vencimiento, el rol ya no autoriza -> 403
-# Pausa: esperar a que pase @vence_en_corto antes de enviar esta petición.
+# Pausa: esperar a que pase now() + 1 minuto (el valor de @vence_en_corto)
+# antes de enviar esta petición, con la MISMA cookie de `login_ana_rol`.
 # Esperado: 403 {"detail":"No autorizado"}
 # (Mientras el rol siga vigente la respuesta es 200: ese 200 demuestra que
 # el rol se aceptó, no que el vencimiento falle.)

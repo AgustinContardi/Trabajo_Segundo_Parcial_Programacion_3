@@ -134,10 +134,30 @@ async def test_venta_inexistente_da_404_a_cualquier_sesion(
 async def test_mis_ventas_sin_cookie_da_401(
     api_client: httpx.AsyncClient,
 ) -> None:
-    response = await api_client.get("/ventas/mis-ventas")
+    response = await api_client.get("/mis-ventas")
 
     assert response.status_code == 401
     assert response.json() == {"detail": "No autenticado"}
+
+
+async def test_mis_ventas_se_publica_en_el_path_canonico(api_app) -> None:
+    """El contrato OpenAPI expone `/mis-ventas` y ya no `/ventas/mis-ventas`."""
+    rutas = api_app.openapi().get("paths", {})
+
+    assert "/mis-ventas" in rutas
+    assert "/ventas/mis-ventas" not in rutas
+
+
+async def test_path_viejo_de_mis_ventas_da_404(
+    api_client: httpx.AsyncClient, usuario_factory
+) -> None:
+    """`GET /ventas/mis-ventas` ya no existe: responde 404, no 422."""
+    usuario = await usuario_factory(password=PASSWORD, roles=("CLIENTE",))
+    await _login(api_client, usuario)
+
+    response = await api_client.get("/ventas/mis-ventas")
+
+    assert response.status_code == 404
 
 
 async def test_mis_ventas_devuelve_solo_las_ventas_propias(
@@ -151,7 +171,7 @@ async def test_mis_ventas_devuelve_solo_las_ventas_propias(
     )
     await _login(api_client, usuario)
 
-    response = await api_client.get("/ventas/mis-ventas")
+    response = await api_client.get("/mis-ventas")
 
     assert response.status_code == 200
     body = response.json()
@@ -166,7 +186,7 @@ async def test_mis_ventas_sin_ficha_de_cliente_devuelve_pagina_vacia(
     usuario = await usuario_factory(password=PASSWORD, roles=("VENDEDOR",))
     await _login(api_client, usuario)
 
-    response = await api_client.get("/ventas/mis-ventas")
+    response = await api_client.get("/mis-ventas")
 
     assert response.status_code == 200
     assert response.json() == {

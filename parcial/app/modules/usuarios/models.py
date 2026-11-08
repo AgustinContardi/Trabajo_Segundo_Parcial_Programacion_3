@@ -87,7 +87,7 @@ class AsignacionRol(SQLModel, table=True):
     rol: str = Field(sa_column=Column("rol", String, nullable=False))
     desde: datetime = Field(
         sa_column=Column(
-            "desde", DateTime(timezone=True), nullable=False, server_default="now()"
+            "desde", DateTime(timezone=True), nullable=False, server_default=text("now()")
         )
     )
     vence_en: Optional[datetime] = Field(
@@ -127,7 +127,7 @@ class IntentoAcceso(SQLModel, table=True):
     )
     cuando: datetime = Field(
         sa_column=Column(
-            "cuando", DateTime(timezone=True), nullable=False, server_default="now()"
+            "cuando", DateTime(timezone=True), nullable=False, server_default=text("now()")
         )
     )
     email: str = Field(sa_column=Column("email", String, nullable=False))
@@ -144,7 +144,7 @@ class EventoSeguridad(SQLModel, table=True):
     )
     cuando: datetime = Field(
         sa_column=Column(
-            "cuando", DateTime(timezone=True), nullable=False, server_default="now()"
+            "cuando", DateTime(timezone=True), nullable=False, server_default=text("now()")
         )
     )
     actor: str = Field(sa_column=Column("actor", Text, nullable=False))

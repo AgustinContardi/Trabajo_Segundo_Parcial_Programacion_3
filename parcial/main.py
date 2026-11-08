@@ -120,6 +120,7 @@ router_protegido = APIRouter(dependencies=[Depends(control_cambio_password)])
 
 from app.modules.clientes.router import router as clientes_router
 from app.modules.ventas.router import router as ventas_router
+from app.modules.ventas.router import router_mis_ventas
 from app.modules.usuarios.router_admin import router_eventos, router_usuarios
 from app.modules.editoriales.router import router_admin as editoriales_router_admin
 from app.modules.generos.router import router_admin as generos_router_admin
@@ -128,6 +129,7 @@ from app.modules.libros.router import router_admin as libros_router_admin
 
 router_protegido.include_router(clientes_router)
 router_protegido.include_router(ventas_router)
+router_protegido.include_router(router_mis_ventas)
 router_protegido.include_router(router_usuarios)
 router_protegido.include_router(router_eventos)
 router_protegido.include_router(editoriales_router_admin)

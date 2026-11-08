@@ -27,7 +27,7 @@ async def crear_libro(
     _sesion: IdentidadActual = Depends(_solo_admin),
     uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
-    libro = await service.crear(uow, data)
+    libro = await service.crear(uow, data, usuario_actual=_sesion.usuario)
     libro = await service.obtener(uow, libro.id)
     return await service.to_detail_read(libro)
 
@@ -88,7 +88,7 @@ async def reponer_libro(
     _sesion: IdentidadActual = Depends(_solo_admin),
     uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ):
-    libro = await service.reponer(uow, libro_id, data.cantidad)
+    libro = await service.reponer(uow, libro_id, data.cantidad, _sesion.usuario)
     libro = await service.obtener(uow, libro.id)
     return await service.to_detail_read(libro)
 

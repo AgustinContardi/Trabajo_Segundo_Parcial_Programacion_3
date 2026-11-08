@@ -1,6 +1,6 @@
 """Repositorio del módulo `ventas`.
 
-Toda precarga (`selectinload`/`joinedload`) vive acá (CV-03); ni el servicio ni
+Toda precarga (`selectinload`/`joinedload`) vive acá (CV-02); ni el servicio ni
 el router precargan. Sólo `flush()` a través de `BaseRepository`.
 """
 
@@ -27,7 +27,7 @@ class VentaRepository(BaseRepository[Venta]):
         """Obtiene una venta por id precargando cliente, renglones y el libro
         de cada renglón (incluidos los dados de baja).
 
-        La precarga se declara adentro de este método (CV-03); número de
+        La precarga se declara adentro de este método (CV-02); número de
         consultas fijo (3 `SELECT`), independiente de la cantidad de renglones.
         """
         stmt = (

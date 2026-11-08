@@ -56,3 +56,16 @@ Cada tarea tiene un criterio de verificación ejecutable (comando, test o inspec
 
 - Al aprobar la verificación, actualizar `CHANGES.md`: marcar C-14 como `[x]` cerrado y archivar el change con `/opsx-archive`.
 - Revisar que la aceptación de `docs/CHECKLIST_ENTREGA.md` §1, §5, §7 y §10 quede ejecutable; si algún comando no se puede correr, no marcar el ítem.
+
+## Errata (2026-11-08)
+
+Aclaración del change `fix-auditoria-final` (C-14, tarea 8.2). Las tareas 7.1
+y 8.2 describen `test_cambio_password_api.py` como una corrida contra
+PostgreSQL real; el archivo **mockea** la sesión, el repositorio y el UoW con
+`dependency_overrides`, así que demuestra el contrato HTTP pero no el
+comportamiento de las filas. La corrida real contra PostgreSQL —incluida la
+evidencia de `c-09.http`— es la que quedó registrada en `parcial/test/EVIDENCIA.md`
+§C-09.
+
+No se modifican tareas, estados ni checkboxes: la errata sólo precisa de dónde
+sale cada evidencia.

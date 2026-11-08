@@ -259,7 +259,7 @@ async def test_ruta_protegida_con_debe_cambiar_password_true_devuelve_403(
 
         app.dependency_overrides[control_cambio_password] = control_que_rechaza
         try:
-            response = await client.get("/ventas/mis-ventas")
+            response = await client.get("/mis-ventas")
             assert response.status_code == 403, response.text
             assert response.json() == {"detail": "No autorizado"}
         finally:

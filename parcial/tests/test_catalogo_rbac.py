@@ -252,6 +252,23 @@ async def test_admin_reponer_y_movimientos_contrato(
         await engine.dispose()
 
 
+async def test_patch_de_autor_homonimo_no_promete_un_409(
+    api_client: httpx.AsyncClient, usuario_factory, catalogo_factory
+) -> None:
+    """`autor` no declara unicidad: copiar los datos de otro autor da 200."""
+    primero = await catalogo_factory.autor()
+    segundo = await catalogo_factory.autor()
+    await _admin(api_client, usuario_factory)
+
+    response = await api_client.patch(
+        f"/autores/{primero.id}",
+        json={"nombre": segundo.nombre, "nacionalidad": segundo.nacionalidad},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["nombre"] == segundo.nombre
+
+
 async def test_lecturas_publicas_siguen_abiertas(
     api_client: httpx.AsyncClient, catalogo_factory
 ) -> None:

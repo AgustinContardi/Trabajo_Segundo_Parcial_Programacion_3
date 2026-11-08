@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from app.core.dependencies import (
     IdentidadActual,
@@ -17,6 +17,10 @@ from app.modules.ventas.schemas import (
 from app.modules.ventas.unit_of_work import VentasUnitOfWork, get_ventas_uow
 
 router = APIRouter(prefix="/ventas", tags=["ventas"])
+
+# `GET /mis-ventas` se publica sin prefijo (D-01 del change `fix-auditoria-final`):
+# el path canónico es `/mis-ventas`, no `/ventas/mis-ventas`.
+router_mis_ventas = APIRouter(tags=["ventas"])
 
 # Sólo el listado completo es de personal; el detalle y «mis ventas» dependen
 # de la propiedad que decide el servicio (RN-14).
@@ -66,7 +70,7 @@ def _to_detail(venta) -> VentaDetailRead:
     )
 
 
-@router.get("/mis-ventas", response_model=Pagina[VentaRead])
+@router_mis_ventas.get("/mis-ventas", response_model=Pagina[VentaRead])
 async def mis_ventas(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -82,6 +86,17 @@ async def mis_ventas(
         size=pagina.size,
         pages=pagina.pages,
     )
+
+
+@router.get("/mis-ventas", include_in_schema=False)
+async def path_viejo_mis_ventas() -> None:
+    """El path histórico `/ventas/mis-ventas` responde 404 y no se publica.
+
+    Sin esta lápida, `/ventas/{venta_id}` capturaría el segmento `mis-ventas`
+    y devolvería 422 al convertir el id. El contrato (D-01) exige 404 y la
+    ausencia del path en `openapi.json`; `include_in_schema=False` la asegura.
+    """
+    raise HTTPException(status_code=404, detail="No encontrado")
 
 
 @router.get("/", response_model=Pagina[VentaRead])

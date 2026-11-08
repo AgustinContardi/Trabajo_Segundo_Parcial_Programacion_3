@@ -59,3 +59,16 @@
 - Archivar el change con `/opsx:archive` y marcar `[x]` en `CHANGES.md` una vez
   verificada la aceptación (§1, §7 y §9 del checklist).
 - Actualizar el estado del change en `CHANGES.md` a `[x]`.
+## Errata (2026-11-08)
+
+Corrección del change `fix-auditoria-final` (C-06, tarea 6.5). La tarea 5.2
+original dice `python -c "import app.main"`; esa cita es incorrecta porque el
+paquete de la aplicación se llama `app` pero el entrypoint se importa como
+`main` con `PYTHONPATH=parcial`. La evidencia reproducible es:
+
+    cd parcial
+    $env:PYTHONPATH='parcial'
+    python -c "import main"
+
+No se modifican tareas, estados ni checkboxes originales: la errata sólo deja
+la cita correcta para quien reproduzca la evidencia.

@@ -7,7 +7,7 @@ lógica.
 
 ## Integrantes
 
-> Completar con nombres y apellidos antes de la entrega.
+> Completar con nombres y apellidos antes de la entrega (queda pendiente hasta C-22, el change del zip).
 
 - _(integrante 1)_
 - _(integrante 2)_
@@ -57,8 +57,13 @@ Todos los comandos se corren **dentro de `parcial/`**.
    alembic upgrade head
    ```
 
-   (Con este change todavía no hay migraciones propias: el historial queda
-   vacío. Las del TP cap. 1-4 se incorporan al desbloquear el baseline.)
+   El historial tiene **cinco** versiones encadenadas, en este orden:
+   `0001` (baseline del TP), `0002` (género), `0003` (acceso y stock),
+   `0004` (sólo agregado de `movimiento_stock`) y
+   `<revision>_0005_now_server_defaults.py` (defaults `now()` reales). El
+   nombre de cada archivo conserva el prefijo ordinal además del hash de
+   Alembic; `alembic current` debe mostrar la revisión de 0005 como `(head)`
+   y `alembic check` no debe detectar diferencias.
 
 5. Levantar la API:
 

@@ -7,9 +7,9 @@ Contrato de este módulo (CV-01):
 - Quién confirma: sólo ``__aexit__`` del Unit of Work.
 - Quién cierra: ``get_session`` (la sesión no la crea el repositorio).
 
-Reglas (CV-02): ningún método invoca confirmación ni reversión sobre la
+Reglas (CV-01): ningún método invoca confirmación ni reversión sobre la
 sesión; sólo ``flush()``. Toda precarga (``selectinload``) se declara adentro
-del método que la necesita (CV-03); este módulo base no precarga nada.
+del método que la necesita (CV-02); este módulo base no precarga nada.
 """
 
 from datetime import datetime, timezone

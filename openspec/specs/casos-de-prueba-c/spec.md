@@ -60,7 +60,10 @@ libros ad hoc (C-17, checklist §8).
 El archivo de roles SHALL iniciar dos sesiones en el mismo documento —cada login con `# @name`— y SHALL
 enviar las peticiones de cada sesión con `# @no-cookie-jar` y la cabecera
 `Cookie: {{login_<sesión>.response.headers.Set-Cookie}}`, de modo que una sesión pueda revocar el rol de la
-otra sin perder su propia cookie (consigna p. 23, checklist §10).
+otra sin perder su propia cookie (consigna p. 23, checklist §10). El bloque de vencimiento (C-07.11) SHALL
+incluir en su encabezado los pasos exactos para regenerar el `403` con una fecha relativa (asignar
+`vence_en` a `now() + 1 minuto`, esperar el vencimiento y repetir con la misma cookie), porque una fecha
+fija en el futuro lejano no demuestra el caso.
 
 #### Scenario: Dos logins nombrados
 
@@ -84,6 +87,12 @@ otra sin perder su propia cookie (consigna p. 23, checklist §10).
 
 - **WHEN** se asigna un rol con `vence_en` sin zona horaria o en el pasado
 - **THEN** la respuesta es `422`, no `409` ni `500`
+
+#### Scenario: Vencimiento real reproducible
+
+- **WHEN** se sigue el procedimiento del encabezado de C-07.11 con una fecha relativa
+- **THEN** la misma cookie responde `200` antes del vencimiento y `403` después, sin editar valores a mano
+  fuera de los pasos indicados
 
 ### Requirement: C-14 se demuestra con SQL de sólo agregado
 
@@ -166,3 +175,19 @@ consigna p. 21-22).
 
 - **WHEN** se revisa la evidencia de C-14 y C-15
 - **THEN** sus capturas existen y el change deja escrito que C-19 las consolida en `parcial/evidencia/`
+
+### Requirement: C-06 demuestra el path standalone de mis ventas
+
+`parcial/test/roles.http` SHALL incluir un bloque C-06 que solicite `GET /mis-ventas` (sin prefijo
+`/ventas`) con la cookie de un cliente, declare el status esperado y el envoltorio, y `EVIDENCIA.md` SHALL
+registrar su corrida. El archivo MUST NOT usar `/ventas/mis-ventas` como path canónico.
+
+#### Scenario: Bloque de mis ventas
+
+- **WHEN** se busca `GET /mis-ventas` en `parcial/test/roles.http`
+- **THEN** existe al menos un bloque C-06 con `# Esperado:` y la cookie de un cliente con ficha
+
+#### Scenario: Path incorrecto ausente
+
+- **WHEN** se busca `/ventas/mis-ventas` en `parcial/test/`
+- **THEN** no aparece como ruta canónica ni en la evidencia

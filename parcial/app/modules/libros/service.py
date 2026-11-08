@@ -1,4 +1,11 @@
-"""Logica de negocio del modulo libros (seis capas, C-08)."""
+"""Logica de negocio del modulo libros (seis capas, C-08).
+
+Contrato de errores (CV-08): el orden es **404 → 409 → 422**. `obtener`,
+`actualizar`, `dar_de_baja`, `reponer` y `movimientos` empiezan por el 404 del
+libro; luego 409 por ISBN duplicado, libro dado de baja o falta de actor que
+firme el movimiento; por último 422 en la cantidad. `crear` no tiene 404: sus
+409 son el ISBN duplicado y la falta de actor.
+"""
 
 from decimal import Decimal
 from typing import Any, List, Optional
@@ -62,16 +69,13 @@ async def crear(
                 )
             if data.stock_inicial and data.stock_inicial != 0:
                 if usuario_id is None:
-                    from sqlalchemy import text
-
-                    result = await uow.session.execute(
-                        text("select id from usuario limit 1")
+                    raise HTTPException(
+                        status_code=409,
+                        detail="No hay usuario autenticado que firme el movimiento",
                     )
-                    usuario_id = result.scalar_one_or_none()
-                if usuario_id is not None:
-                    await uow.libros.aplicar_movimiento(
-                        libro, data.stock_inicial, "Stock inicial", usuario_id
-                    )
+                await uow.libros.aplicar_movimiento(
+                    libro, data.stock_inicial, "Stock inicial", usuario_id
+                )
     except IntegrityError as exc:
         raise traducir_integrity_error(exc)
     return libro
@@ -138,12 +142,10 @@ async def reponer(
         if getattr(obj, "borrado_en", None) is not None:
             raise HTTPException(status_code=409, detail="El libro está dado de baja")
         if usuario_id is None:
-            from sqlalchemy import text
-
-            result = await uow.session.execute(text("select id from usuario limit 1"))
-            usuario_id = result.scalar_one_or_none()
-        if usuario_id is None:
-            raise HTTPException(status_code=409, detail="No hay usuario disponible")
+            raise HTTPException(
+                status_code=409,
+                detail="No hay usuario autenticado que firme el movimiento",
+            )
         await uow.libros.aplicar_movimiento(obj, cantidad, "Reposición", usuario_id)
     return await obtener(uow, libro_id)
 

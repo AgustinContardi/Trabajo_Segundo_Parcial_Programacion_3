@@ -1,8 +1,8 @@
 """Repositorio del módulo `usuarios`.
 
 Lecturas de autenticación (C-11) y alta de la asignación de rol del
-auto-registro (C-12). Sólo `flush()` a través de `BaseRepository` (CV-02);
-ninguna consulta precarga fuera de este módulo (CV-03). Las ventanas de tiempo
+auto-registro (C-12). Sólo `flush()` a través de `BaseRepository` (CV-01);
+ninguna consulta precarga fuera de este módulo (CV-02). Las ventanas de tiempo
 se calculan con el reloj de PostgreSQL (`now()`), no con el reloj del proceso.
 """
 
@@ -72,7 +72,7 @@ class UsuarioRepository(BaseRepository[Usuario]):
 
 
 class AsignacionRolRepository(BaseRepository[AsignacionRol]):
-    """Roles del usuario; alta (`abrir`) y cierre (`cerrar`) sólo `flush()` (CV-02)."""
+    """Roles del usuario; alta (`abrir`) y cierre (`cerrar`) sólo `flush()` (CV-01)."""
 
     def __init__(self, session: Any) -> None:
         super().__init__(session, AsignacionRol)
@@ -121,7 +121,7 @@ class AsignacionRolRepository(BaseRepository[AsignacionRol]):
         Con `bloquear=True` emite `SELECT ... FOR UPDATE` sobre **todas** las
         filas vigentes (para serializar revocaciones concurrentes de `ADMIN`);
         la exclusión del objetivo se hace en memoria (§3 del design de C-15).
-        Nunca confirma la transacción (CV-02).
+        Nunca confirma la transacción (CV-01).
         """
         stmt = (
             select(AsignacionRol)
@@ -145,8 +145,10 @@ class AsignacionRolRepository(BaseRepository[AsignacionRol]):
     async def cerrar(
         self, asignacion: AsignacionRol, cuando: datetime | None = None
     ) -> None:
-        """Escribe `revocada_en` (default `now()` del servidor) y hace `flush()`.
-        Nunca borra la fila (SU-12).
+        """Escribe `revocada_en` con el reloj de la aplicación en UTC, igual que
+        `abrir()`, y hace `flush()`. `func.now()` se descarta porque asignaría
+        una expresión SQL al atributo que el servicio devuelve en la respuesta
+        (D-09). Nunca borra la fila (SU-12).
         """
         asignacion.revocada_en = cuando or datetime.now(timezone.utc)
         await self._session.flush()
@@ -159,7 +161,7 @@ class AsignacionRolRepository(BaseRepository[AsignacionRol]):
         vence_en: datetime | None = None,
         otorgada_por: int | None = None,
     ) -> AsignacionRol:
-        """Crea una asignación abierta y hace `flush()` (CV-02)."""
+        """Crea una asignación abierta y hace `flush()` (CV-01)."""
         asignacion = AsignacionRol(
             usuario_id=usuario_id,
             rol=rol,

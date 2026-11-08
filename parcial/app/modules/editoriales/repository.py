@@ -1,6 +1,6 @@
 """Repositorio del módulo `editoriales`.
 
-Toda precarga (`selectinload`/`joinedload`) vive acá (CV-03); ni el servicio ni
+Toda precarga (`selectinload`/`joinedload`) vive acá (CV-02); ni el servicio ni
 el router precargan. Sólo `flush()` a través de `BaseRepository`.
 """
 

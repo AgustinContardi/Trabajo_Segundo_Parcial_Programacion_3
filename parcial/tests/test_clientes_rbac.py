@@ -191,6 +191,43 @@ async def test_rol_revocado_o_vencido_quita_el_acceso_con_la_misma_cookie(
     assert response.json() == {"detail": "No autorizado"}
 
 
+async def test_ventas_de_cliente_pagina_sin_repetir_ni_omitir(
+    api_client: httpx.AsyncClient,
+    usuario_factory,
+    cliente_factory,
+    venta_factory,
+) -> None:
+    """El orden determinista por `Venta.id` evita repetidos entre páginas."""
+    usuario = await usuario_factory(password=PASSWORD, roles=("VENDEDOR",))
+    cliente = await cliente_factory()
+    ventas = [await venta_factory(cliente_id=cliente.id) for _ in range(3)]
+    await _login(api_client, usuario)
+
+    primera = await api_client.get(
+        f"/clientes/{cliente.id}/ventas", params={"page": 1, "size": 2}
+    )
+    segunda = await api_client.get(
+        f"/clientes/{cliente.id}/ventas", params={"page": 2, "size": 2}
+    )
+
+    assert primera.status_code == 200, primera.text
+    assert segunda.status_code == 200, segunda.text
+    ids_primera = [item["id"] for item in primera.json()["items"]]
+    ids_segunda = [item["id"] for item in segunda.json()["items"]]
+    assert ids_primera == [ventas[0].id, ventas[1].id]
+    assert ids_segunda == [ventas[2].id]
+    assert ids_primera + ids_segunda == [v.id for v in ventas]
+
+
+async def test_ventas_de_stmt_ordena_por_venta_id() -> None:
+    from sqlalchemy.dialects import postgresql
+
+    stmt = ClienteRepository.ventas_de_stmt(7)
+    sql = str(stmt.compile(dialect=postgresql.dialect()))
+
+    assert "ORDER BY venta.id" in sql
+
+
 async def test_ventas_de_exige_el_parametro_actual() -> None:
     parametro = inspect.signature(clientes_service.ventas_de).parameters["actual"]
 

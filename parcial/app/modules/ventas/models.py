@@ -16,6 +16,7 @@ from sqlalchemy import (
     Numeric,
     String,
 )
+from sqlalchemy.sql import text
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -42,7 +43,7 @@ class Venta(SQLModel, table=True):
     )
     fecha: datetime = Field(
         sa_column=Column(
-            "fecha", DateTime(timezone=True), nullable=False, server_default="now()"
+            "fecha", DateTime(timezone=True), nullable=False, server_default=text("now()")
         )
     )
     total: Decimal = Field(sa_column=Column("total", Numeric(12, 2), nullable=False))

@@ -1,6 +1,6 @@
 """Repositorio del módulo `clientes`.
 
-Toda precarga (`selectinload`/`joinedload`) vive acá (CV-03); ni el servicio ni
+Toda precarga (`selectinload`/`joinedload`) vive acá (CV-02); ni el servicio ni
 el router precargan. Sólo `flush()` a través de `BaseRepository`.
 """
 
@@ -22,7 +22,7 @@ class ClienteRepository(BaseRepository[Cliente]):
     async def get_by_id(self, id: Any) -> Cliente | None:
         """Obtiene un cliente por id precargando `perfil` y `usuario`.
 
-        La precarga se declara adentro de este método (CV-03); otros métodos
+        La precarga se declara adentro de este método (CV-02); otros métodos
         (como `ventas_de`) no la necesitan y no la cargan.
         """
         stmt = (
@@ -48,9 +48,23 @@ class ClienteRepository(BaseRepository[Cliente]):
         await self._session.flush()
         return perfil
 
+    @staticmethod
+    def ventas_de_stmt(cliente_id: int):
+        """Statement de ventas del cliente con orden determinista por id.
+
+        `Venta.id` es único y ya es el desempate del listado general, así que
+        la paginación no repite ni omite filas (C-07).
+        """
+        return (
+            select(Venta)
+            .where(Venta.cliente_id == cliente_id)
+            .order_by(Venta.id)
+        )
+
     async def ventas_de(
         self, cliente_id: int, page: int = 1, size: int = 20
     ) -> Pagina[Venta]:
         """Ventas del cliente, paginadas, consultando sobre `venta`."""
-        stmt = select(Venta).where(Venta.cliente_id == cliente_id)
-        return await paginar(self._session, stmt, page, size)
+        return await paginar(
+            self._session, self.ventas_de_stmt(cliente_id), page, size
+        )

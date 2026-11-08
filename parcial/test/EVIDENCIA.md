@@ -64,7 +64,7 @@ Contraseñas ficticias del seed (`seed.py`, docstring): `admin-ficticia-2024`,
 | `test/ventas.http` | C-10, C-11, C-12, C-15, C-16 (cuerpo) | reescrito sobre el seed |
 | `test/solo_agregado.sql` | C-14 | **nuevo** |
 | `test/tp.http` | — | **retirado** (ver §4) |
-| `test/evidencia/c-10-backgroundtasks.txt` | C-10 | captura cruda |
+| `evidencia/c-10-backgroundtasks.txt` | C-10 | captura cruda entregable (copia de `test/evidencia/`) |
 | `test/evidencia/c-14_solo_agregado.txt` | C-14 | captura cruda de `psql` |
 | `test/evidencia/c-15_consultas_2y4.txt` | C-15 | captura cruda con `SQL_ECHO=true` |
 
@@ -136,6 +136,7 @@ C-02.3 no dejó filas sueltas).
 | C-06.3 venta de Ana por el vendedor | 201 `cliente_id: 3` | **201** id 2, `total "22000.00"`, Ficciones |
 | C-06.4 Ana lee su venta | 200 | **200** `cliente_id: 3`, detalle completo |
 | C-06.5 Ana lee la venta de Lucía | 403 | **403** «No autorizado» |
+| C-06.6 Ana lista sus ventas en `GET /mis-ventas` | 200, sólo `cliente_id: 3` | **200** envoltorio `{items,total,page,size,pages}` (tras el seed no hay ventas previas: `items: []`); ruta anterior → **404** |
 | C-07.1 `/auth/yo` antes | 200 `roles:["VENDEDOR"]` | **200** `roles: ["VENDEDOR"]`, `roles_token: ["VENDEDOR"]` |
 | C-07.2 revocar VENDEDOR | 200 con `revocada_en` | **200** fila id 3, `revocada_en` con fecha |
 | C-07.3 misma cookie en ruta pública | 200 | **200** `/libros/1` |
@@ -159,11 +160,13 @@ C-02.3 no dejó filas sueltas).
 `asignacion_rol`: la fila `VENDEDOR` de `vendedor@` (id 3) quedó con `revocada_en`; la de Ana
 (id 6) con `vence_en`. Ninguna se borró (RN-05).
 
-> **C-07.9 → C-07.11 en la corrida equivalente.** El `.http` trae `@vence_en_corto` con una fecha
-> de ejemplo (2030) porque REST Client no calcula fechas. Para que C-07.11 sea concluyente, la
-> corrida equivalente asignó `vence_en = now + 2 s`, comprobó 200 antes del vencimiento y 403
-> después. Con la fecha de 2030 el rol sigue vigente y C-07.11 devolvería 200: no es un defecto,
-> es que el vencimiento no ocurrió.
+> **C-07.9 → C-07.11 en la corrida equivalente.** El `.http` calcula
+> `@vence_en_corto` al vuelo como `now() + 1 minuto` con la variable dinámica
+> de REST Client (`{{$datetime iso8601 1 m}}`). Para que C-07.11 sea
+> concluyente, la corrida equivalente asignó `vence_en = now + 2 s`, comprobó
+> 200 antes del vencimiento y 403 después con la misma cookie. Si el minuto
+> todavía no pasó, el rol sigue vigente y C-07.11 devuelve 200: no es un
+> defecto, es que el vencimiento no ocurrió.
 
 ### C-01 / C-13 / C-16 catálogo — `test/libros.http`
 
@@ -244,9 +247,9 @@ criterio (el archivo no abre transacción propia).
 
 | Captura | Qué demuestra | Ruta |
 |---|---|---|
-| C-10 | el mensaje `Comprobante de la venta <id> enviado al cliente` aparece **después** de la línea de la respuesta `201` | `test/evidencia/c-10-backgroundtasks.txt` |
-| C-14 | los dos `ERROR` del disparador y las 7 filas intactas | `test/evidencia/c-14_solo_agregado.txt` |
-| C-15 | **6 SELECT** con 2 renglones y **6 SELECT** con 4 renglones | `test/evidencia/c-15_consultas_2y4.txt` |
+| C-10 | el mensaje `Comprobante de la venta <id> enviado al cliente` aparece **después** de la línea de la respuesta `201` | `evidencia/c-10-backgroundtasks.txt` (copia entregable; original en `test/evidencia/`) |
+| C-14 | los dos `ERROR` del disparador y las 7 filas intactas | `evidencia/c-14_solo_agregado.txt` |
+| C-15 | **6 SELECT** con 2 renglones y **6 SELECT** con 4 renglones | `evidencia/c-15_consultas_2y4.txt` |
 
 C-19 consolida estas tres capturas en `parcial/evidencia/` con el nombre definitivo.
 
@@ -318,7 +321,7 @@ Es una corrida real de los `.http`, no una captura de la GUI de REST Client.
 |---|---|---|
 | `auth.http` | 12/12 OK (C-03/04/05) | `test/evidencia/manual-auth.txt` |
 | `registro.http` | 7/7 OK (C-02) | `test/evidencia/manual-registro.txt` |
-| `roles.http` | 27/27 OK (C-06/07/08/09) | `test/evidencia/manual-roles.txt` |
+| `roles.http` | 28/28 OK (C-06/07/08/09) | `test/evidencia/manual-roles.txt` |
 | `libros.http` | 25/25 OK (C-01/13/16 catálogo) | `test/evidencia/manual-libros.txt` |
 | `ventas.http` | 20/20 OK (C-10/11/12/15/16 cuerpo) | `test/evidencia/manual-ventas.txt` |
 | `solo_agregado.sql` | dos errores del disparador y 7 filas | `test/evidencia/manual-solo_agregado.txt` |

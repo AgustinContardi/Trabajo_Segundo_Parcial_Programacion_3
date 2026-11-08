@@ -1,4 +1,11 @@
-"""Lógica de negocio del módulo `autores`."""
+"""Lógica de negocio del módulo `autores`.
+
+Contrato de errores (CV-08): el orden es **404 → 422**. `autor` no declara
+ninguna unicidad en la base (ni en la migración ni en el modelo), así que
+`PATCH /autores/{id}` no puede producir un `409` por duplicado: la traducción
+de `IntegrityError` en `crear`/`actualizar` queda sólo como defensa ante
+constraints futuras, nunca como una rama alcanzable del contrato.
+"""
 
 from typing import List
 
@@ -53,6 +60,7 @@ async def actualizar(
         try:
             await uow.autores.update(obj)
         except IntegrityError as exc:
+            # Defensa ante constraints futuras: hoy `autor` no tiene unicidad.
             raise traducir_integrity_error(exc)
     return obj
 
