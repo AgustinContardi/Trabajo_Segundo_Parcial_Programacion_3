@@ -740,7 +740,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-17] seed-libreria
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — implementado y verificado contra PostgreSQL 17 real (2026-11-08); archivado como `2026-11-08-c-17-seed-libreria` (`openspec/changes/archive/`), 18/18 tareas y spec principal `openspec/specs/datos-iniciales/spec.md` creada en el archive. `parcial/seed.py` reescrito: vacía con `TRUNCATE ... RESTART IDENTITY CASCADE` (sin tocar `alembic_version`) y carga en una sola transacción 5 usuarios + 5 roles, 3 editoriales, 3 géneros, 6 autores, 5 libros, 3 clientes, 1 perfil, la venta 1 (`69000.00`, 2 renglones), **7 movimientos** (stock inicial `+11/+5/+10/+3/+1` y salidas `−1`/`−2`) y la línea `SISTEMA|Carga de los datos iniciales`; el stock se escribe **sólo** por `LibroRepository.aplicar_movimiento` (`RN-11`/`RN-12`). Dos corridas consecutivas dejan ids y conteos idénticos (stocks `10/5/8/3/1`, invariante en **0 filas**). Evidencia en `evidencia.md` del archivo. La suite quedó en **459 passed, 1 skipped** (417 preexistentes + 42 nuevas de contrato sin base; el skip es el E2E opt-in `SEED_E2E=1`) y se aisló `tests/test_admin_roles_concurrencia.py` del seed (cierra por SQL los `ADMIN` vigentes y los restaura en `finally`).
 - **Scope**:
   - `seed.py` en la raíz de `parcial/` que **vacía** y carga: 5 usuarios (`admin`, `admin2`, `vendedor`,
     `ana`, `nuevo` con cambio pendiente) con sus roles, 3 editoriales, 3 géneros, 6 autores y los 5 libros
