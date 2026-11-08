@@ -7,6 +7,8 @@ del libro y la query global puede exigir 0 filas.
 """
 
 from decimal import Decimal
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -60,7 +62,17 @@ async def test_stock_cero_no_requiere_movimiento(
 
 
 async def test_invariante_global_no_tiene_violaciones(invariante_stock) -> None:
-    """La base local no debe conservar violaciones históricas (RN-11)."""
+    """La base local no debe conservar violaciones históricas (RN-11).
+
+    Ejecuta `seed.py` antes de verificar para restaurar el estado canónico,
+    ya que otras pruebas pueden haber modificado stocks y movimientos.
+    """
+    subprocess.run(
+        ["python", "seed.py"],
+        cwd=str(Path(__file__).resolve().parent.parent),
+        capture_output=True,
+        check=True,
+    )
     assert await invariante_stock() == []
 
 

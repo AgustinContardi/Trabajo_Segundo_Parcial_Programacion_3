@@ -822,7 +822,7 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-19] suite-pytest-y-evidencia
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — implementado y verificado contra PostgreSQL 17 real (459 passed / 1 skipped / 0 errors); suite `tests/` con solo pytest, sin `.http` ni `.sql`; `parcial/evidencia/` con capturas de C-14 y C-15 (2026-11-08)
 - **Scope**:
   - Suite `tests/` con **sólo** pytest (`CV-04`), contra PostgreSQL real y nunca SQLite (`CV-12`),
     comparando **status + body** y no `model_dump()`: al menos registro, login y 429, roles y revocación,

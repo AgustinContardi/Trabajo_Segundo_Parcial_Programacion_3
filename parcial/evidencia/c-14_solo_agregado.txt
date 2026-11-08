@@ -1,0 +1,9 @@
+psql:test/solo_agregado.sql:24: ERROR:  movimiento_stock es de solo agregado: operacion UPDATE no permitida
+CONTEXTO:  función PL/pgSQL movimiento_stock_no_modificable() en la línea 3 en RAISE
+psql:test/solo_agregado.sql:28: ERROR:  movimiento_stock es de solo agregado: operacion DELETE no permitida
+CONTEXTO:  función PL/pgSQL movimiento_stock_no_modificable() en la línea 3 en RAISE
+ filas_movimiento_stock 
+------------------------
+                      7
+(1 fila)
+
