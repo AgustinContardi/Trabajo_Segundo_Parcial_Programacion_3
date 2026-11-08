@@ -29,6 +29,22 @@ async def crear(session: AsyncSession, cliente_id: int, renglones_data) -> Venta
             raise HTTPException(status_code=422, detail="Libro repetido en la venta")
         seen.add(r.libro_id)
 
+    # cargar libros y validar stock antes de escribir la venta
+    libros = {}
+    for r in renglones_data:
+        libro = await session.get(Libro, r.libro_id)
+        if libro is None:
+            raise HTTPException(status_code=409, detail="Libro inexistente")
+        libros[r.libro_id] = libro
+
+    for r in renglones_data:
+        libro = libros[r.libro_id]
+        if libro.stock < r.cantidad:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Stock insuficiente para '{libro.titulo}'",
+            )
+
     venta = Venta(cliente_id=cliente_id, total=Decimal("0"))
     session.add(venta)
     try:
@@ -39,11 +55,9 @@ async def crear(session: AsyncSession, cliente_id: int, renglones_data) -> Venta
 
     total = Decimal("0")
     for r in renglones_data:
-        libro = await session.get(Libro, r.libro_id)
-        if libro is None:
-            await session.rollback()
-            raise HTTPException(status_code=409, detail="Libro inexistente")
+        libro = libros[r.libro_id]
         precio = libro.precio
+        libro.stock -= r.cantidad
         renglon = RenglonVenta(
             venta_id=venta.id,
             libro_id=r.libro_id,
