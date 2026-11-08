@@ -1,0 +1,326 @@
+# C-01 / C-13 / C-16 (catálogo) · Validación de ruta, baja/re-alta y contrato del catálogo
+#
+# Puesta en marcha: alembic upgrade head -> python seed.py -> uvicorn main:app
+# API en http://127.0.0.1:8000 con PostgreSQL real.
+#
+# Estado del seed que este archivo asume (C-17):
+#   libros 1..5 = Rayuela (10, 25000.00), Antología (5, 30000.00),
+#                 Ficciones (8, 22000.00), Respiración artificial (3, 27000.00),
+#                 Bestiario (1, 18000.00); géneros 1 Novela / 2 Cuentos.
+#   Nada más se siembra a mano: no hay INSERT de preparación.
+#
+# Orden del archivo (importa):
+#   C-01 -> C-16 del catálogo -> C-13.
+#   C-16 se mide ANTES de C-13 para que `total` sea el del seed (5) y no 6
+#   (C-13 deja un libro nuevo re-alzado). C-13 usa un ISBN propio
+#   (978-950-00-9001-1) y no toca los stocks 10/5/8/3/1.
+#
+# Rastrea: checklist §10 C-01, C-13 y C-16; §9 (PATCH parcial); RN-01, RN-11,
+# RN-13, RN-15.
+
+@host = http://127.0.0.1:8000
+@admin_password = admin-ficticia-2024
+@vendedor_password = vendedor-ficticia-2024
+@isbn_c13 = 978-950-00-9001-1
+@titulo_c13 = Libro de baja y re-alta C-13
+
+### C-01.0a · login del administrador -> 200
+# @name login_admin
+# Esperado: 200 + Set-Cookie HttpOnly (la cookie es la única credencial).
+# RN-04.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "{{admin_password}}"
+}
+
+### C-01.0b · login del vendedor -> 200
+# @name login_vendedor
+# Esperado: 200 + su propia cookie.
+# RN-04.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "vendedor@example.com",
+  "password": "{{vendedor_password}}"
+}
+
+# ---------------------------------------------------------------------------
+# C-01 · Parámetro de ruta no entero con sesión
+# ---------------------------------------------------------------------------
+
+### C-01.1 · GET /libros/abc con sesión -> 422 sin ejecutar el handler
+# Esperado: 422
+# Esperado (cuerpo): {"detail":[{"loc":["path","libro_id"],
+#   "msg":"Debe ser un número entero válido","type":"int_parsing"}]}
+# Con `SQL_ECHO=true`, entre la línea de la petición y la respuesta NO aparece
+# ninguna consulta `... FROM libro WHERE libro.id = ...`: la validación ocurre
+# antes del handler.
+# RN-15 (ninguna entrada inválida termina en 500).
+# @no-cookie-jar
+GET {{host}}/libros/abc
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+# ---------------------------------------------------------------------------
+# C-16 · Catálogo: paginación, filtro, inyección y PATCH parcial
+# ---------------------------------------------------------------------------
+
+### C-16.1 · GET /libros/?size=2 -> 200 con total 5 y pages 3
+# Esperado: 200
+# Esperado (cuerpo): {"items":[2 libros],"total":5,"page":1,"size":2,"pages":3}
+# RN-15.
+GET {{host}}/libros/?size=2
+
+### C-16.2 · GET /libros/?size=2&page=4 -> 422 página inexistente con mensaje propio
+# Con 5 libros y size=2 hay 3 páginas, así que la 4 no existe.
+# Esperado: 422 {"detail":"La página 4 no existe: hay 3"}
+# Fuente: consigna p.10 («La página 4 no existe: hay 3»).
+# RN-15.
+GET {{host}}/libros/?size=2&page=4
+
+### C-16.3 · GET /libros/?titulo=ficc&size=1 -> total 1, pages 1
+# El filtro no distingue mayúsculas y `total` se cuenta con el mismo filtro.
+# Esperado: 200 {"items":[Ficciones],"total":1,"page":1,"size":1,"pages":1}
+# RN-15.
+GET {{host}}/libros/?titulo=ficc&size=1
+
+### C-16.4 · GET /libros/?titulo=ficc&size=1&page=2 -> 422 (hay 1 página)
+# Esperado: 422 {"detail":"La página 2 no existe: hay 1"}
+# RN-15.
+GET {{host}}/libros/?titulo=ficc&size=1&page=2
+
+### C-16.5 · GET /libros/?size=500 -> 422 tamaño fuera del rango
+# Esperado: 422
+# Esperado (cuerpo): {"detail":[{"loc":["query","size"],
+#   "msg":"El valor supera el máximo permitido","type":"less_than_equal"}]}
+# El contrato de `size` (1..100) se valida en la capa HTTP; nunca llega a la
+# consulta y nunca es 500.
+# RN-15.
+GET {{host}}/libros/?size=500
+
+### C-16.6 · búsqueda con `' OR '1'='1'` -> 200 lista vacía, no rompe ni devuelve todo
+# La consulta usa parámetros ligados: el texto se busca literal.
+# Esperado: 200 {"items":[],"total":0,"page":1,"size":20,"pages":1}
+# RN-15.
+GET {{host}}/libros/?titulo=%27%20OR%20%271%27%3D%271
+
+### C-16.7 · PATCH /libros/1 con sólo `titulo` -> 200 y `precio` intacto
+# `exclude_unset`: los campos ausentes no se tocan.
+# Esperado: 200 {"id":1,"titulo":"Rayuela (edición corregida)",
+#   "precio":"25000.00","stock":10,...}
+# RN-15.
+# @no-cookie-jar
+PATCH {{host}}/libros/1
+Content-Type: application/json
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+{
+  "titulo": "Rayuela (edición corregida)"
+}
+
+### C-16.8 · PATCH /libros/1 con `stock` -> 422 campo no permitido
+# Esperado: 422
+# Esperado (cuerpo): {"detail":[{"loc":["body","stock"],
+#   "msg":"El campo no está permitido","type":"extra_forbidden"}]}
+# `stock` no es actualizable por PATCH: sólo se mueve por `movimiento_stock`
+# (RN-11, RN-12).
+# RN-11, RN-15.
+# @no-cookie-jar
+PATCH {{host}}/libros/1
+Content-Type: application/json
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+{
+  "stock": 99
+}
+
+# ---------------------------------------------------------------------------
+# C-13 · Reposición, baja lógica, venta vieja, re-alta y choques
+# ---------------------------------------------------------------------------
+
+### C-13.1 · alta ADMIN con stock inicial 3 -> 201
+# Esperado: 201 {"id":<nuevo>,"isbn":"978-950-00-9001-1",
+#   "titulo":"Libro de baja y re-alta C-13","precio":"10000.00","stock":3,...}
+# El stock nace de un movimiento `Stock inicial` (RN-11).
+# RN-01, RN-11.
+# @name libro_c13
+# @no-cookie-jar
+POST {{host}}/libros/
+Content-Type: application/json
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+{
+  "isbn": "{{isbn_c13}}",
+  "titulo": "{{titulo_c13}}",
+  "precio": "10000.00",
+  "stock_inicial": 3,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": []
+}
+
+### C-13.2 · GET /libros/{id}/movimientos -> 200 con "Stock inicial"
+# Esperado: 200 [{"id":<n>,"libro_id":<id>,"venta_id":null,"usuario_id":1,
+#   "cantidad":3,"motivo":"Stock inicial","cuando":...}]
+# RN-11, RN-12.
+# @no-cookie-jar
+GET {{host}}/libros/{{libro_c13.response.body.$.id}}/movimientos
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+### C-13.3 · reponer 2 -> 200 y stock 5
+# Esperado: 200 {"id":<id>,"stock":5,...}
+# Se agrega un movimiento con motivo "Reposición" y cantidad +2.
+# RN-11.
+# @no-cookie-jar
+POST {{host}}/libros/{{libro_c13.response.body.$.id}}/reponer
+Content-Type: application/json
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+{
+  "cantidad": 2
+}
+
+### C-13.4 · venta de 1 ejemplar del libro nuevo -> 201 (queda una venta vieja)
+# Cliente 1 (Lucía) y el libro nuevo (stock 5 -> 4).
+# Esperado: 201 {"cliente_id":1,"total":"10000.00",...,"renglones":[
+#   {"libro_id":<id>,"cantidad":1,"precio_unitario":"10000.00","titulo":
+#   "Libro de baja y re-alta C-13","subtotal":"10000.00"}]}
+# RN-09, RN-10.
+# @name venta_c13
+# @no-cookie-jar
+POST {{host}}/ventas/
+Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    { "libro_id": {{libro_c13.response.body.$.id}}, "cantidad": 1 }
+  ]
+}
+
+### C-13.5 · DELETE /libros/{id} -> 204 (baja lógica)
+# Esperado: 204 sin cuerpo. La fila NO se borra: `borrado_en` queda con fecha.
+# RN-13.
+# @no-cookie-jar
+DELETE {{host}}/libros/{{libro_c13.response.body.$.id}}
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+### C-13.6 · el libro dado de baja sale del catálogo -> 200 sin él
+# Esperado: 200 con el envoltorio de libros y NINGÚN item con id = <id> y
+# `borrado_en` no nulo. (Total 5: los cinco del seed.)
+# RN-13.
+GET {{host}}/libros/?size=100
+
+### C-13.7 · GET /libros/{id} del libro dado de baja -> 404
+# Esperado: 404 {"detail":"Libro no encontrado"}
+# RN-13.
+GET {{host}}/libros/{{libro_c13.response.body.$.id}}
+
+### C-13.8 · la venta vieja sigue mostrando el título del libro dado de baja
+# Esperado: 200 con el detalle de C-13.4 y
+#   "titulo":"Libro de baja y re-alta C-13" en su renglón.
+# La precarga del renglón incluye libros dados de baja (RN-13).
+# RN-13.
+# @no-cookie-jar
+GET {{host}}/ventas/{{venta_c13.response.body.$.id}}
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+### C-13.9 · re-alta con el mismo ISBN -> 201 (índice único parcial)
+# `uq_libro_isbn_vigente` sólo cubre filas con `borrado_en IS NULL`.
+# Esperado: 201 con un id NUEVO, mismo ISBN y stock 3.
+# RN-01.
+# @name libro_c13_realta
+# @no-cookie-jar
+POST {{host}}/libros/
+Content-Type: application/json
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+{
+  "isbn": "{{isbn_c13}}",
+  "titulo": "{{titulo_c13}} (re-alta)",
+  "precio": "10000.00",
+  "stock_inicial": 3,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": []
+}
+
+### C-13.10 · segundo alta con el ISBN aún vigente -> 409
+# Esperado: 409 {"detail":"Ya existe un libro con ese ISBN"}
+# RN-01, RN-15.
+# @no-cookie-jar
+POST {{host}}/libros/
+Content-Type: application/json
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+{
+  "isbn": "{{isbn_c13}}",
+  "titulo": "Duplicado vigente",
+  "precio": "10000.00",
+  "stock_inicial": 1,
+  "editorial_id": 1,
+  "autores": []
+}
+
+### C-13.11 · vender el libro dado de baja -> 409
+# Esperado: 409 {"detail":"El libro 'Libro de baja y re-alta C-13' está dado de baja"}
+# No se escribe venta, renglón ni movimiento.
+# RN-13, RN-10.
+# @no-cookie-jar
+POST {{host}}/ventas/
+Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    { "libro_id": {{libro_c13.response.body.$.id}}, "cantidad": 1 }
+  ]
+}
+
+### C-13.12 · reponer el libro dado de baja -> 409
+# Esperado: 409 {"detail":"El libro está dado de baja"}
+# RN-13.
+# @no-cookie-jar
+POST {{host}}/libros/{{libro_c13.response.body.$.id}}/reponer
+Content-Type: application/json
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+{
+  "cantidad": 1
+}
+
+### C-13.13 · segundo DELETE del mismo libro -> 404
+# Esperado: 404 {"detail":"Libro no encontrado"}
+# La baja no es idempotente: el libro ya no está vigente.
+# RN-13.
+# @no-cookie-jar
+DELETE {{host}}/libros/{{libro_c13.response.body.$.id}}
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+### C-13.14 · control SQL de las dos filas del ISBN
+# SELECT id, titulo, borrado_en, stock FROM libro
+# WHERE isbn = '978-950-00-9001-1' ORDER BY id;
+# -- dos filas: la primera con borrado_en no nulo y stock 4
+# --             la segunda vigente (borrado_en NULL) y stock 3
+# SELECT id, titulo, stock FROM libro WHERE id BETWEEN 1 AND 5 ORDER BY id;
+# -- los cinco del seed siguen con 10/5/8/3/1
+# RN-11, RN-13.
+
+# ---------------------------------------------------------------------------
+# C-14 · `movimiento_stock` es de sólo agregado — NO es un bloque HTTP
+# ---------------------------------------------------------------------------
+# La prueba de C-14 vive en `test/solo_agregado.sql`: un `UPDATE` y un `DELETE`
+# sobre `movimiento_stock` que el disparador rechaza.
+#
+#   cd parcial
+#   psql -h 127.0.0.1 -p 5432 -U libreria -d libreria -f test/solo_agregado.sql
+#
+# Esperado: «movimiento_stock es de solo agregado: operacion UPDATE no permitida»
+# y «… operacion DELETE no permitida», con las 7 filas intactas.
+# Captura: test/evidencia/c-14_solo_agregado.txt.
+# RN-12.

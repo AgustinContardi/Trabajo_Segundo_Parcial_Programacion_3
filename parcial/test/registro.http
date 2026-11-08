@@ -1,47 +1,51 @@
-# C-12 — Auto-registro atómico de clientes (caso C-02 de docs/CHECKLIST_ENTREGA.md §10)
+# C-02 · Auto-registro atómico de clientes
 #
-# Requisitos:
-#   - API en http://127.0.0.1:8000 con PostgreSQL real y esquema al día.
-#   - Ningún usuario/cliente previo con los emails de este archivo.
-#   - Cambiar `@sufijo` en cada corrida: las peticiones que responden 201 crean
-#     filas reales y, al repetir el mismo email, la segunda corrida daría 409.
+# Puesta en marcha (obligatoria antes de abrir este archivo):
+#   1. alembic upgrade head
+#   2. python seed.py            (deja 5 usuarios, 5 asignaciones y 3 clientes)
+#   3. uvicorn main:app --host 127.0.0.1 --port 8000
+# La API debe estar en http://127.0.0.1:8000 con PostgreSQL real.
 #
-# Qué demuestra:
-#   - 201 con exactamente `id`, `email`, `nombre`, `activo`, `debe_cambiar_password`
-#     (sin `password_hash` y sin `Set-Cookie`).
-#   - 409 propio cuando el email ya existe como usuario.
-#   - 409 propio cuando el email ya existe como cliente, sin apropiarse de la ficha.
-#   - 422 con `rol`, con 73 bytes y con 40 «ñ» (80 bytes), sin escribir filas.
-#   - 201 con una contraseña de exactamente 72 bytes.
+# Este archivo NO necesita ningún INSERT de preparación: los dos 409 se
+# consiguen con filas que el seed ya deja:
+#   - admin@example.com  existe como usuario (id 1).
+#   - lucia@example.com  existe como cliente (id 1) con usuario_id NULL.
+# Las altas 201 crean filas reales: cambiar @sufijo en cada corrida o volver a
+# sembrar (`python seed.py`) antes de repetir el archivo.
 #
-# Las consultas SQL de control se ejecutan en psql y se comparan antes/después.
-# Antes de la primera petición:
-#   SELECT count(*) FROM usuario;          -- u0
-#   SELECT count(*) FROM asignacion_rol;   -- a0
-#   SELECT count(*) FROM cliente;          -- c0
+# Conteos de control (ejecutar en psql antes de la primera petición):
+#   SELECT count(*) FROM usuario;          -- u0 = 5
+#   SELECT count(*) FROM asignacion_rol;   -- a0 = 5
+#   SELECT count(*) FROM cliente;          -- c0 = 3
+# Al terminar, los tres deben haber crecido sólo con las dos altas 201
+# (C-02.1 y C-02.7): u0+2 / a0+2 / c0+2.
+#
+# Rastrea: checklist §10 C-02, RN-02 (alta atómica: usuario + rol CLIENTE +
+# ficha de cliente), RN-15 (ninguna entrada inválida termina en 500).
 
 @host = http://127.0.0.1:8000
-@sufijo = 2026-11-06-01
+@sufijo = 2026-11-08-01
 @email_alta = c02-alta-{{sufijo}}@example.com
 @email_72 = c02-72bytes-{{sufijo}}@example.com
-@email_ficha = c02-ficha-{{sufijo}}@example.com
 @password = clave-segura-123
 
-### C-02.1 · alta válida -> 201
-# Esperado: {"id":<nuevo>,"email":"c02-alta-...@example.com","nombre":"Ana Pérez",
-#            "activo":true,"debe_cambiar_password":false}
-# No aparece `password_hash` ni la contraseña en claro.
-# Sin `Set-Cookie`: el registro no inicia sesión.
-# Después:
+### C-02.1 · alta válida -> 201 (usuario + rol CLIENTE + ficha)
+# Esperado: 201
+# Esperado (cuerpo): {"id":<nuevo>,"email":"c02-alta-...@example.com",
+#   "nombre":"Ana Pérez","activo":true,"debe_cambiar_password":false}
+#   Sólo esas cinco claves: NO aparece `password_hash` ni la contraseña.
+# Esperado (cabeceras): SIN `Set-Cookie` (el registro no inicia sesión).
+# Control posterior:
 #   SELECT u.email, a.rol, a.vence_en, a.revocada_en, c.usuario_id = u.id
 #   FROM usuario u
 #   JOIN asignacion_rol a ON a.usuario_id = u.id
 #   JOIN cliente c ON c.usuario_id = u.id
-#   WHERE u.email = 'c02-alta-2026-11-06-01@example.com';
-#   -- 1 fila, rol CLIENTE, vence_en y revocada_en NULL, usuario_id ligado
+#   WHERE u.email = 'c02-alta-2026-11-08-01@example.com';
+#   -- 1 fila: rol CLIENTE, vence_en y revocada_en NULL, usuario_id ligado.
 #   SELECT count(*) FROM usuario;        -- u0 + 1
 #   SELECT count(*) FROM asignacion_rol; -- a0 + 1
 #   SELECT count(*) FROM cliente;        -- c0 + 1
+# RN-02, RN-15.
 POST {{host}}/auth/registro
 Content-Type: application/json
 
@@ -51,44 +55,46 @@ Content-Type: application/json
   "password": "{{password}}"
 }
 
-### C-02.2 · el mismo email ya existe como usuario -> 409
-# Esperado: {"detail":"Ya existe un usuario con ese email"}
-# El cuerpo no menciona `uq_usuario_email` ni "duplicate key".
-# Después: los tres count(*) siguen en u0+1 / a0+1 / c0+1 (no hay filas nuevas).
+### C-02.2 · correo ya registrado como USUARIO -> 409
+# Esperado: 409 {"detail":"Ya existe un usuario con ese email"}
+# El cuerpo no menciona `uq_usuario_email` ni "duplicate key" (RN-15).
+# Después: los tres count(*) NO cambian (u0+1 / a0+1 / c0+1).
+# RN-02.
 POST {{host}}/auth/registro
 Content-Type: application/json
 
 {
-  "email": "{{email_alta}}",
-  "nombre": "Otra Persona",
+  "email": "admin@example.com",
+  "nombre": "Otro Administrador",
   "password": "{{password}}"
 }
 
-### C-02.3 · preparar una ficha de cliente SIN usuario_id -> luego 409
-# Ejecutar una sola vez en psql (y borrarla al final):
-#   INSERT INTO cliente (nombre, email)
-#   VALUES ('Ficha ajena', 'c02-ficha-2026-11-06-01@example.com');
-#
-# Esperado del POST: {"detail":"Ya existe un cliente con ese email"}
+### C-02.3 · correo ya presente como CLIENTE sin usuario -> 409 sin apropiarse de la ficha
+# `lucia@example.com` es un cliente del seed con usuario_id NULL.
+# Esperado: 409 {"detail":"Ya existe un cliente con ese email"}
 # Después:
 #   SELECT nombre, email, usuario_id FROM cliente
-#   WHERE email = 'c02-ficha-2026-11-06-01@example.com';
-#   -- sigue con nombre 'Ficha ajena' y usuario_id NULL
-#   SELECT count(*) FROM usuario;          -- u0 + 1 (no creció)
-#   SELECT count(*) FROM asignacion_rol;   -- a0 + 1 (no creció)
-#   SELECT count(*) FROM cliente;          -- c0 + 2 (sólo la ficha sembrada)
+#   WHERE email = 'lucia@example.com';
+#   -- sigue con usuario_id NULL (el alta revirtió usuario y rol también).
+#   SELECT count(*) FROM usuario;        -- u0 + 1 (no creció)
+#   SELECT count(*) FROM asignacion_rol; -- a0 + 1 (no creció)
+#   SELECT count(*) FROM cliente;        -- c0 + 1 (no creció)
+# RN-02 (las tres filas se confirman o revierten juntas).
 POST {{host}}/auth/registro
 Content-Type: application/json
 
 {
-  "email": "{{email_ficha}}",
-  "nombre": "Ana Pérez",
+  "email": "lucia@example.com",
+  "nombre": "Lucía Fernández",
   "password": "{{password}}"
 }
 
 ### C-02.4 · campo `rol` en el cuerpo -> 422 sin escribir filas
-# Esperado: 422 con `detail` de validación; `rol` es un campo extra prohibido.
+# Esperado: 422
+# Esperado (cuerpo): {"detail":[{"loc":["body","rol"],
+#   "msg":"El campo no está permitido","type":"extra_forbidden"}]}
 # Después: los tres count(*) no cambian.
+# RN-02, RN-15 (extra="forbid").
 POST {{host}}/auth/registro
 Content-Type: application/json
 
@@ -100,7 +106,11 @@ Content-Type: application/json
 }
 
 ### C-02.5 · contraseña de 73 bytes -> 422 antes de bcrypt
-# Esperado: 422 con el mensaje de los 72 bytes; no se escribe ninguna fila.
+# Esperado: 422
+# Esperado (cuerpo): {"detail":[{"loc":["body","password"],
+#   "msg":"Los datos enviados no son válidos","type":"value_error"}]}
+# No se escribe ninguna fila (los count(*) no cambian).
+# RN-15 (límite de 72 bytes de bcrypt).
 POST {{host}}/auth/registro
 Content-Type: application/json
 
@@ -110,8 +120,11 @@ Content-Type: application/json
   "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 
-### C-02.6 · 40 «ñ» (80 bytes) -> 422 antes de bcrypt
-# Esperado: 422 con el mensaje de los 72 bytes; no se escribe ninguna fila.
+### C-02.6 · 40 «ñ» = 80 bytes -> 422 antes de bcrypt
+# El límite se mide en bytes UTF-8, no en caracteres.
+# Esperado: 422 con el mismo mensaje que C-02.5.
+# No se escribe ninguna fila.
+# RN-15.
 POST {{host}}/auth/registro
 Content-Type: application/json
 
@@ -122,8 +135,10 @@ Content-Type: application/json
 }
 
 ### C-02.7 · contraseña de exactamente 72 bytes -> 201
-# Esperado: 201, igual que C-02.1 (72 bytes es el límite aceptado por bcrypt).
-# Después: los tres count(*) suben en 1.
+# Esperado: 201 con la misma forma que C-02.1 (72 bytes es el máximo aceptado).
+# Después: usuario / asignacion_rol / cliente suben en 1 cada uno
+# (u0+2 / a0+2 / c0+2 al terminar el archivo).
+# RN-02, RN-15.
 POST {{host}}/auth/registro
 Content-Type: application/json
 
@@ -132,9 +147,3 @@ Content-Type: application/json
   "nombre": "Límite Setenta y Dos",
   "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
-
-### C-02.8 · limpieza al terminar (psql)
-#   DELETE FROM asignacion_rol WHERE usuario_id IN (
-#     SELECT id FROM usuario WHERE email LIKE 'c02-%@example.com');
-#   DELETE FROM cliente WHERE email LIKE 'c02-%@example.com';
-#   DELETE FROM usuario WHERE email LIKE 'c02-%@example.com';

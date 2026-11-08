@@ -781,7 +781,16 @@ caro pero donde el trabajo es más acotado.
 
 ### [C-18] casos-c-http-y-solo-agregado
 
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` cerrado — archivado como `2026-11-08-c-18-casos-c-http-y-solo-agregado`.
+  - `parcial/test/` quedó con `registro.http`, `auth.http`, `roles.http`, `libros.http` y `ventas.http`,
+    más `solo_agregado.sql` y `EVIDENCIA.md`; `tp.http` se retiró.
+  - Pasada manual ejecutada el 2026-11-08 con `httpyac` 6.16.7 contra uvicorn + PostgreSQL 17.11,
+    después de `python seed.py` (REST Client GUI no está instalado en el entorno headless). Se
+    corrieron 12/12 auth, 7/7 registro, 27/27 roles, 25/25 libros y 20/20 ventas; C-14 con `psql`
+    y C-10 con `SQL_ECHO=false`; C-07 se completó con un vencimiento corto 200→403. Capturas en
+    `parcial/test/evidencia/`.
+  - La corrida literal en REST Client GUI queda como verificación opcional del usuario; no cambia
+    el resultado de la API ni la evidencia registrada.
 - **Scope**:
   - `test/` con un `.http` por módulo que cubre **C-01…C-16**, cada uno con la respuesta esperada escrita
     en un comentario, y todos corridos con REST Client **después** de `python seed.py`.

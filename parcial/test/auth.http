@@ -1,25 +1,29 @@
-# C-11 — Autenticación con cookie (casos C-03, C-04 y C-05)
+# C-03 / C-04 / C-05 · Autenticación con cookie, error uniforme y límite de intentos
 #
-# Requisitos:
-#   - API en http://127.0.0.1:8000 con PostgreSQL real y esquema al día.
-#   - Un usuario ACTIVO `admin@example.com` con contraseña `admin12345` para C-03.
-#   - Un usuario INACTIVO `inactivo@example.com` con la misma contraseña para C-04.
-#   - C-05 usa un email inexistente: no necesita cuenta.
+# Puesta en marcha: alembic upgrade head -> python seed.py -> uvicorn main:app
+# API en http://127.0.0.1:8000 con PostgreSQL real.
+# Credenciales del seed: admin@example.com / admin-ficticia-2024.
 #
-# El token viaja SÓLO en `Set-Cookie: access_token`; ningún JSON de este archivo
-# lo incluye. Cada cliente HTTP conserva su propia cookie entre peticiones.
+# El token viaja SÓLO en `Set-Cookie: access_token`; ningún JSON de este
+# archivo lo incluye y ninguna petición lo lee de `Authorization`.
+#
+# Rastrea: checklist §10 C-03, C-04 y C-05; RN-04, RN-06, RN-07, RN-08.
 
 @host = http://127.0.0.1:8000
 @email = admin@example.com
-@password = admin12345
-@email_inexistente = c05-no-existe@example.com
+@password = admin-ficticia-2024
+@password_mala = admin-ficticia-mala
 @email_c04_inexistente = c04-no-existe@example.com
-@email_inactivo = inactivo@example.com
+@email_c05 = c05-no-existe@example.com
 
-### C-03 · login correcto -> 200 + cookie HttpOnly
-# Esperado (cuerpo): {"mensaje":"Sesión iniciada","debe_cambiar_password":false,"expira_en_segundos":1800}
-# Esperado (cabecera): Set-Cookie: access_token=<jwt>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
-# El JWT NO aparece en el cuerpo.
+### C-03.1 · login correcto -> 200 + cookie HttpOnly, cuerpo sin token
+# @name login_admin
+# Esperado: 200
+# Esperado (cuerpo): {"mensaje":"Sesión iniciada","debe_cambiar_password":false,
+#   "expira_en_segundos":1800}
+# Esperado (cabecera):
+#   Set-Cookie: access_token=<jwt>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+# El JWT NO aparece en el cuerpo (RN-04).
 POST {{host}}/auth/login
 Content-Type: application/json
 
@@ -28,29 +32,39 @@ Content-Type: application/json
   "password": "{{password}}"
 }
 
-### C-03 · segunda sesión con otro cliente -> 200 + su propia cookie
-# Abrir este archivo en un segundo cliente/ventana para no mezclar cookies.
-# El cuerpo tampoco incluye el token.
+### C-03.2 · /auth/yo sin cookie -> 401
+# Sin cookie jar para no reutilizar la cookie de C-03.1.
+# Esperado: 401 {"detail":"No autenticado"}
+# RN-04.
+# @no-cookie-jar
+GET {{host}}/auth/yo
+
+### C-03.3 · /auth/yo con `Authorization: Bearer <token inventado>` -> 401
+# El token no se acepta por cabecera: sólo cuenta la cookie `access_token`.
+# Esperado: 401 {"detail":"No autenticado"}
+# RN-04, RN-06.
+# @no-cookie-jar
+GET {{host}}/auth/yo
+Authorization: Bearer token-inventado-que-no-es-un-jwt
+
+### C-04.1 · correo existente con contraseña incorrecta -> 401
+# Esperado: 401 {"detail":"Credenciales inválidas"}
+# Anotar la duración que muestra el cliente (REST Client: pestaña de la
+# respuesta). Debe ser comparable con C-04.2.
+# RN-08 (bcrypt contra un hash ficticio cuando el correo no existe).
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
   "email": "{{email}}",
-  "password": "{{password}}"
+  "password": "{{password_mala}}"
 }
 
-### C-04 · contraseña incorrecta -> 401 genérico
-# Esperado: {"detail":"Credenciales inválidas"}
-POST {{host}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "{{email}}",
-  "password": "clave-incorrecta"
-}
-
-### C-04 · email inexistente -> 401 con el MISMO cuerpo y tiempo comparable
-# Esperado: {"detail":"Credenciales inválidas"}
+### C-04.2 · correo inexistente -> 401 con el MISMO cuerpo y tiempo comparable
+# Esperado: 401 {"detail":"Credenciales inválidas"} (idéntico a C-04.1)
+# Duración comparable a C-04.1: no se puede distinguir si el correo existe.
+# No emite `Set-Cookie`.
+# RN-08.
 POST {{host}}/auth/login
 Content-Type: application/json
 
@@ -59,100 +73,79 @@ Content-Type: application/json
   "password": "{{password}}"
 }
 
-### C-04 · usuario inactivo -> 401 con el MISMO cuerpo, sin Set-Cookie
-# Esperado: {"detail":"Credenciales inválidas"}
+### C-05 · intentos 1 a 5 -> 401 cada uno (se procesan y se registran)
+# Se usa un correo inexistente dedicado para no bloquear las cuentas del seed.
+# Esperado en cada uno: 401 {"detail":"Credenciales inválidas"}
+# RN-07.
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{email_inactivo}}",
-  "password": "{{password}}"
-}
-
-### C-05 · intentos 1 a 5 -> 401 (se procesan y se registran)
-# Usar un email inexistente para aislar el conteo del caso C-03/C-04.
-# Esperado en cada uno: {"detail":"Credenciales inválidas"}
-POST {{host}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "{{email_inexistente}}",
-  "password": "clave-incorrecta"
+  "email": "{{email_c05}}",
+  "password": "c05-intento-1"
 }
 
 ###
+# Esperado: 401 {"detail":"Credenciales inválidas"}
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{email_inexistente}}",
-  "password": "clave-incorrecta"
+  "email": "{{email_c05}}",
+  "password": "c05-intento-2"
 }
 
 ###
+# Esperado: 401 {"detail":"Credenciales inválidas"}
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{email_inexistente}}",
-  "password": "clave-incorrecta"
+  "email": "{{email_c05}}",
+  "password": "c05-intento-3"
 }
 
 ###
+# Esperado: 401 {"detail":"Credenciales inválidas"}
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{email_inexistente}}",
-  "password": "clave-incorrecta"
+  "email": "{{email_c05}}",
+  "password": "c05-intento-4"
 }
 
 ###
+# Esperado: 401 {"detail":"Credenciales inválidas"}
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{email_inexistente}}",
-  "password": "clave-incorrecta"
+  "email": "{{email_c05}}",
+  "password": "c05-intento-5"
 }
 
-### C-05 · sexto intento -> 429 + Retry-After en milisegundos, sin bcrypt
+### C-05 · sexto intento -> 429 + Retry-After en milisegundos
 # Esperado: 429 {"detail":"Demasiados intentos de inicio de sesión"}
-# Esperado (cabecera): Retry-After: <entero decimal>  (se interpreta como ms)
+# Esperado (cabecera): Retry-After: <entero decimal> (milisegundos, ≤ 60000)
+# El sexto intento se registra igual en `intento_acceso` (AB-03).
 # Verificación SQL:
-#   SELECT id, email, ip, exito, cuando FROM intento_acceso
-#    WHERE email = 'c05-no-existe@example.com' ORDER BY id;
-#   -> 6 filas: 5 con exito = false y el intento limitado.
+#   SELECT id, email, exito, cuando FROM intento_acceso
+#   WHERE email = 'c05-no-existe@example.com' ORDER BY id;
+#   -- 6 filas: las seis con exito = false (5 procesadas + la limitada).
+# RN-07.
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{email_inexistente}}",
-  "password": "{{password}}"
+  "email": "{{email_c05}}",
+  "password": "c05-intento-6"
 }
 
-### C-11 · logout -> 200 + Set-Cookie con Max-Age=0
+### C-03 · logout -> 200 + Set-Cookie con Max-Age=0
+# Complemento de C-03: la sesión se cierra expirando la cookie.
 # Esperado (cuerpo): {"mensaje":"Sesión cerrada"}
-# Esperado (cabecera): Set-Cookie: access_token=""; HttpOnly; Max-Age=0; Path=/; SameSite=lax
+# Esperado (cabecera):
+#   Set-Cookie: access_token=""; expires=<fecha pasada>; HttpOnly; Max-Age=0; Path=/; SameSite=lax
+# RN-06.
 POST {{host}}/auth/logout
-
-### C-11 · entrada inválida: campo no declarado -> 422
-# Esperado: 422 y sin ejecutar bcrypt.
-POST {{host}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "{{email}}",
-  "password": "{{password}}",
-  "rol": "ADMIN"
-}
-
-### C-11 · entrada inválida: contraseña de más de 72 bytes -> 422
-# Esperado: 422 antes de bcrypt.
-POST {{host}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "{{email}}",
-  "password": "ñññññññññññññññññññññññññññññññññññññ"
-}

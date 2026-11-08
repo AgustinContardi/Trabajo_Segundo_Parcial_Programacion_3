@@ -1,245 +1,379 @@
-# C-16 fix — venta transaccional (C-10, C-11, C-12, RN-09, RN-10, RN-11,
-# RN-13, RN-15 y el aviso de `BackgroundTasks`).
+# C-10 / C-11 / C-12 / C-15 / C-16 (cuerpo de venta) · Venta transaccional y contrato
 #
-# Requisitos para ejecutar este archivo:
-#   - API en http://127.0.0.1:8000 con PostgreSQL real y esquema al día.
-#   - Un usuario VENDEDOR activo `c16-fix-vendedor@example.com` con la
-#     contraseña `c16-fix-clave-123` (C-17/seed o el bootstrap de evidencia).
-#   - Un cliente y tres libros con stock inicial cargado por el punto único
-#     (`movimiento_stock` con motivo `Stock inicial`, RN-11):
-#       * Rayuela      → stock >= 1, precio 45000.00
-#       * Bestiario    → stock = 1,  precio 24000.00
-#       * Libro de baja → `borrado_en IS NOT NULL`
-#     Reemplazar los ids de las variables por los reales de la base.
-#   - El invariante global debe partir en 0 filas:
-#       SELECT l.id FROM libro l
-#       LEFT JOIN movimiento_stock m ON m.libro_id = l.id
-#       GROUP BY l.id, l.stock
-#       HAVING l.stock <> COALESCE(SUM(m.cantidad), 0);
+# Puesta en marcha: alembic upgrade head -> python seed.py -> uvicorn main:app
+# API en http://127.0.0.1:8000 con PostgreSQL real.
 #
-# La cookie viaja SÓLO en `Set-Cookie: access_token` (HttpOnly). El cliente
-# REST conserva la cookie entre bloques del mismo archivo.
+# Estado del seed que este archivo asume (C-17):
+#   cliente 1 Lucía, 2 Tomás, 3 Ana Paz.
+#   libros 1..5 = Rayuela (10, 25000.00), Antología (5, 30000.00),
+#                 Ficciones (8, 22000.00), Respiración artificial (3, 27000.00),
+#                 Bestiario (1, 18000.00).
+#   venta 1 de Lucía (1 Rayuela + 2 Ficciones, total 69000.00); 7 movimientos.
+#   Ningún libro dado de baja (C-12 crea y da de baja el suyo).
+#
+# Conteos de control tras el seed:
+#   SELECT (SELECT count(*) FROM venta) AS ventas,          -- 1
+#          (SELECT count(*) FROM renglon_venta) AS renglones, -- 2
+#          (SELECT count(*) FROM movimiento_stock) AS movimientos; -- 7
+# Invariante global (debe dar 0 filas siempre):
+#   SELECT l.id FROM libro l
+#   LEFT JOIN movimiento_stock m ON m.libro_id = l.id
+#   GROUP BY l.id, l.stock
+#   HAVING l.stock <> COALESCE(SUM(m.cantidad), 0);
+#
+# El aviso de C-10 se verifica en la consola de `uvicorn main:app` (sin
+# --log-config): la línea del comprobante aparece DESPUÉS de la respuesta 201.
+#
+# Rastrea: checklist §10 C-10, C-11, C-12, C-15, C-16; RN-09, RN-10, RN-11,
+# RN-13, RN-15, CV-02.
 
 @host = http://127.0.0.1:8000
-@vendedor_email = c16-fix-vendedor@example.com
-@vendedor_password = c16-fix-clave-123
-@cliente_id = 2001
-@rayuela_id = 2002
-@bestiario_id = 2003
-@libro_baja_id = 2004
+@vendedor_password = vendedor-ficticia-2024
+@admin_password = admin-ficticia-2024
+@cliente_id = 1
 @cliente_inexistente = 999999999
 @libro_inexistente = 999999999
+@isbn_baja = 978-950-00-9002-2
 
-### C-10 · login del vendedor -> 200 + cookie HttpOnly
-# Esperado (cuerpo): {"mensaje":"Sesión iniciada","debe_cambiar_password":false,...}
-# Esperado (cabecera): Set-Cookie: access_token=<jwt>; HttpOnly; Path=/; SameSite=lax
-# RN-04 / C-11: la cookie es la única credencial.
+### C-10.0a · login del vendedor -> 200
+# @name login_vendedor
+# Esperado: 200 + Set-Cookie HttpOnly (única credencial).
+# RN-04.
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "{{vendedor_email}}",
+  "email": "vendedor@example.com",
   "password": "{{vendedor_password}}"
 }
 
-### C-10 · alta válida con dos renglones -> 201
-# Cuerpo: cliente existente, Rayuela x1 y Bestiario x1 (hay stock).
-# Esperado: 201 con
-#   "total" = 1*45000.00 + 1*24000.00 = 69000.00
-#   cada renglón con "precio_unitario" copiado de libro.precio
-#   "cantidad" 1 y "subtotal" 45000.00 / 24000.00
-#   stock de Rayuela y Bestiario descontado en 1
-#   un movimiento_stock por renglón con cantidad -1, motivo 'Venta',
-#   venta_id de la venta nueva y usuario_id del vendedor.
+### C-10.0b · login del administrador -> 200 (preparación de C-12)
+# @name login_admin
+# Esperado: 200 + su propia cookie.
+# RN-04.
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "{{admin_password}}"
+}
+
+# ---------------------------------------------------------------------------
+# C-10 · Venta válida con dos renglones
+# ---------------------------------------------------------------------------
+
+### C-10.1 · venta de 2 renglones -> 201 con precios copiados y total
+# Cliente 1 (Lucía): Rayuela x1 (25000.00) + Ficciones x1 (22000.00).
+# Esperado: 201
+# Esperado (cuerpo): {"id":<nuevo>,"cliente_id":1,"fecha":<timestamptz>,
+#   "total":"47000.00","cliente":{"id":1,"nombre":"Lucía Fernández",...},
+#   "renglones":[
+#     {"libro_id":1,"cantidad":1,"precio_unitario":"25000.00",
+#      "titulo":"Rayuela","subtotal":"25000.00"},
+#     {"libro_id":3,"cantidad":1,"precio_unitario":"22000.00",
+#      "titulo":"Ficciones","subtotal":"22000.00"}]}
+# Después de la respuesta, en la consola del servidor:
+#   Comprobante de la venta <id> enviado al cliente
+#   aparece en una línea POSTERIOR a la respuesta 201 (BackgroundTasks +
+#   asyncio.sleep(0.5)); la respuesta no esperó ese medio segundo.
+#   (Con el logging por defecto de uvicorn la línea sale sin prefijo de nivel.)
+# Control SQL:
+#   SELECT id, cliente_id, total FROM venta ORDER BY id DESC LIMIT 1; -- 47000.00
+#   SELECT libro_id, cantidad, precio_unitario FROM renglon_venta
+#     WHERE venta_id = <id> ORDER BY id;
+#   SELECT libro_id, cantidad, motivo, usuario_id, venta_id
+#     FROM movimiento_stock WHERE venta_id = <id> ORDER BY id;
+#     -- dos filas con cantidad -1 y motivo 'Venta'
+#   SELECT id, stock FROM libro WHERE id IN (1,3); -- 9 y 7
 # RN-09, RN-10, RN-11.
-# Después de la respuesta, en la consola de uvicorn debe aparecer:
-#   WARNING libreria.avisos: Comprobante de la venta <id> enviado al cliente
+# @name venta_2renglones
+# @no-cookie-jar
 POST {{host}}/ventas/
 Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
 
 {
   "cliente_id": {{cliente_id}},
   "renglones": [
-    { "libro_id": {{rayuela_id}}, "cantidad": 1 },
-    { "libro_id": {{bestiario_id}}, "cantidad": 1 }
+    { "libro_id": 1, "cantidad": 1 },
+    { "libro_id": 3, "cantidad": 1 }
   ]
 }
 
-### C-10 · la variante sin barra final responde igual, sin 307
-# Esperado: 201 con la misma forma de cuerpo; NO debe haber 307/redirect.
-# RN-09, CV-08.
+### C-10.2 · POST /ventas sin barra final -> 201, sin 307
+# La ruta está declarada con y sin barra final; no debe haber redirección.
+# Esperado: 201 con la misma forma de cuerpo que C-10.1.
+# RN-09 (CV-08: el contrato no depende de la barra final).
 POST {{host}}/ventas
 Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
 
 {
   "cliente_id": {{cliente_id}},
   "renglones": [
-    { "libro_id": {{rayuela_id}}, "cantidad": 1 }
+    { "libro_id": 1, "cantidad": 1 }
   ]
 }
 
-### Control C-10 · venta, renglones, movimientos y stock
-# Ejecutar en psql después del 201. La venta más reciente debe coincidir con
-# el cuerpo devuelto; los movimientos deben ser negativos y del vendedor.
-#   SELECT id, cliente_id, total, fecha
-#     FROM venta ORDER BY id DESC LIMIT 1;              -- total = 69000.00
-#   SELECT libro_id, cantidad, precio_unitario
-#     FROM renglon_venta WHERE venta_id = <id> ORDER BY id;
-#   SELECT libro_id, cantidad, motivo, usuario_id, venta_id
-#     FROM movimiento_stock WHERE venta_id = <id> ORDER BY id;  -- cantidad < 0
-#   SELECT id, stock FROM libro WHERE id IN ({{rayuela_id}}, {{bestiario_id}});
-#   SELECT l.id FROM libro l
-#     LEFT JOIN movimiento_stock m ON m.libro_id = l.id
-#     GROUP BY l.id, l.stock
-#     HAVING l.stock <> COALESCE(SUM(m.cantidad), 0);    -- 0 filas (RN-11)
-
-### C-11 · Rayuela x1 (alcanza) + Bestiario x2 (hay 1) -> 409 sin escrituras
-# Esperado: 409 {"detail":"Stock insuficiente para 'Bestiario'"}.
-# No debe crecer ninguna fila de venta, renglon_venta ni movimiento_stock,
-# y el stock de ambos libros debe quedar intacto.
-# RN-10, RN-11, RN-13.
-#
-# Control C-11 (ejecutar ANTES y DESPUÉS; los tres conteos deben ser iguales):
-#   SELECT (SELECT count(*) FROM venta) AS ventas,
-#          (SELECT count(*) FROM renglon_venta) AS renglones,
-#          (SELECT count(*) FROM movimiento_stock) AS movimientos;
-#   SELECT id, stock FROM libro WHERE id IN ({{rayuela_id}}, {{bestiario_id}});
-#   -- invariante: 0 filas
-POST {{host}}/ventas/
-Content-Type: application/json
-
-{
-  "cliente_id": {{cliente_id}},
-  "renglones": [
-    { "libro_id": {{rayuela_id}}, "cantidad": 1 },
-    { "libro_id": {{bestiario_id}}, "cantidad": 2 }
-  ]
-}
-
-### C-12 · cliente inexistente -> 409 sin escrituras
-# Esperado: 409 {"detail":"El cliente indicado no existe"}.
-# No usar 404 en el alta: el 404 pertenece a GET /ventas/{id}.
-# RN-10, RN-13.
-POST {{host}}/ventas/
-Content-Type: application/json
-
-{
-  "cliente_id": {{cliente_inexistente}},
-  "renglones": [ { "libro_id": {{rayuela_id}}, "cantidad": 1 } ]
-}
-
-### C-12 · libro inexistente -> 409 sin escrituras
-# Esperado: 409 {"detail":"Uno o más libros indicados no existen"}.
-# RN-10, RN-13.
-POST {{host}}/ventas/
-Content-Type: application/json
-
-{
-  "cliente_id": {{cliente_id}},
-  "renglones": [ { "libro_id": {{libro_inexistente}}, "cantidad": 1 } ]
-}
-
-### C-12 · libro dado de baja -> 409 sin escrituras
-# Esperado: 409 {"detail":"El libro '<título>' está dado de baja"}.
-# RN-10, RN-13.
-POST {{host}}/ventas/
-Content-Type: application/json
-
-{
-  "cliente_id": {{cliente_id}},
-  "renglones": [ { "libro_id": {{libro_baja_id}}, "cantidad": 1 } ]
-}
-
-### Control C-12 · mismas consultas de C-11
-# Los tres 409 deben dejar venta/renglon_venta/movimiento_stock sin cambios,
-# el stock intacto y el invariante en 0 filas.
-#   SELECT (SELECT count(*) FROM venta) AS ventas,
-#          (SELECT count(*) FROM renglon_venta) AS renglones,
-#          (SELECT count(*) FROM movimiento_stock) AS movimientos;
-#   SELECT l.id FROM libro l
-#     LEFT JOIN movimiento_stock m ON m.libro_id = l.id
-#     GROUP BY l.id, l.stock
-#     HAVING l.stock <> COALESCE(SUM(m.cantidad), 0);
-
-### C-16 fix · libro repetido con cliente inexistente -> 409 (no 422)
-# El orden es 401 -> 403 -> 409 -> 422: la existencia gana al contrato.
-# Esperado: 409 {"detail":"El cliente indicado no existe"}.
-# RN-09, CV-08.
-POST {{host}}/ventas/
-Content-Type: application/json
-
-{
-  "cliente_id": {{cliente_inexistente}},
-  "renglones": [
-    { "libro_id": {{rayuela_id}}, "cantidad": 1 },
-    { "libro_id": {{rayuela_id}}, "cantidad": 1 }
-  ]
-}
-
-### C-16 fix · libro repetido con stock agregado suficiente -> 422
-# Suma 2 <= stock; el contrato de renglones gana. Sin escrituras.
-# Esperado: 422 {"detail":"No se puede incluir el mismo libro dos veces en una venta"}.
+### C-10.3 · el detalle devuelve los dos renglones con precio copiado -> 200
+# Esperado: 200 con 2 renglones y los precios de C-10.1 (no recalculados).
 # RN-09.
+# @no-cookie-jar
+GET {{host}}/ventas/{{venta_2renglones.response.body.$.id}}
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+# ---------------------------------------------------------------------------
+# C-11 · Stock insuficiente: transacción completa revertida
+# ---------------------------------------------------------------------------
+
+### C-11.1 · Rayuela x1 (alcanza) + Bestiario x2 (hay 1) -> 409 sin escrituras
+# Esperado: 409 {"detail":"Stock insuficiente para 'Bestiario'"}
+# Control ANTES y DESPUÉS (los tres conteos iguales):
+#   SELECT (SELECT count(*) FROM venta) AS ventas,
+#          (SELECT count(*) FROM renglon_venta) AS renglones,
+#          (SELECT count(*) FROM movimiento_stock) AS movimientos;
+#   SELECT id, stock FROM libro WHERE id IN (1,5); -- 9 y 1, intactos
+#   -- invariante global: 0 filas
+# RN-10, RN-11 (atomicidad: ni venta, ni renglón, ni descuento parcial).
+# @no-cookie-jar
 POST {{host}}/ventas/
 Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
 
 {
   "cliente_id": {{cliente_id}},
   "renglones": [
-    { "libro_id": {{rayuela_id}}, "cantidad": 1 },
-    { "libro_id": {{rayuela_id}}, "cantidad": 1 }
+    { "libro_id": 1, "cantidad": 1 },
+    { "libro_id": 5, "cantidad": 2 }
   ]
 }
 
-### C-16 fix · ID fuera del rango BIGINT -> 422 (nunca 500)
-# Esperado: 422 con detail[0].msg = "El valor supera el máximo permitido"
-# y sin texto de PostgreSQL. No se escribe ninguna fila.
-# RN-15.
+# ---------------------------------------------------------------------------
+# C-12 · Cliente inexistente, libro inexistente y libro dado de baja
+# ---------------------------------------------------------------------------
+
+### C-12.1 · cliente inexistente -> 409 sin escrituras
+# Esperado: 409 {"detail":"El cliente indicado no existe"}
+# (404 sería para GET /ventas/{id}, no para el alta.)
+# RN-10, RN-13.
+# @no-cookie-jar
 POST {{host}}/ventas/
 Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
 
 {
-  "cliente_id": 1000000000000000000000000000000,
-  "renglones": [ { "libro_id": {{rayuela_id}}, "cantidad": 1 } ]
+  "cliente_id": {{cliente_inexistente}},
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 }
+  ]
 }
 
-### C-16 fix · cantidad booleana -> 422 (strict, nunca se coacciona a 1)
-# Esperado: 422 con detail[0].msg = "Debe ser un número entero válido".
-# RN-15.
+### C-12.2 · libro inexistente -> 409 sin escrituras
+# Esperado: 409 {"detail":"Uno o más libros indicados no existen"}
+# RN-10, RN-13.
+# @no-cookie-jar
 POST {{host}}/ventas/
 Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
 
 {
   "cliente_id": {{cliente_id}},
-  "renglones": [ { "libro_id": {{rayuela_id}}, "cantidad": true } ]
+  "renglones": [
+    { "libro_id": {{libro_inexistente}}, "cantidad": 1 }
+  ]
 }
 
-### C-16 fix · cantidad fuera del rango integer -> 422
-# Esperado: 422 con detail[0].msg = "El valor supera el máximo permitido".
-# RN-15.
+### C-12.3 · preparación: el admin crea un libro y lo da de baja
+# El seed no trae libros dados de baja; se crea uno descartable.
+# Esperado alta: 201 con stock 1 (movimiento `Stock inicial`).
+# Esperado baja: 204.
+# (Este libro NO es de ningún caso de venta válida: sólo prepara C-12.4.)
+# RN-01, RN-11, RN-13.
+# @name libro_baja
+# @no-cookie-jar
+POST {{host}}/libros/
+Content-Type: application/json
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+{
+  "isbn": "{{isbn_baja}}",
+  "titulo": "Libro descartable C-12",
+  "precio": "5000.00",
+  "stock_inicial": 1,
+  "editorial_id": 1,
+  "autores": []
+}
+
+###
+# Esperado: 204 sin cuerpo.
+# @no-cookie-jar
+DELETE {{host}}/libros/{{libro_baja.response.body.$.id}}
+Cookie: {{login_admin.response.headers.Set-Cookie}}
+
+### C-12.4 · vender un libro dado de baja -> 409 sin escrituras
+# Esperado: 409 {"detail":"El libro 'Libro descartable C-12' está dado de baja"}
+# Control: los conteos de venta / renglon_venta no cambian; el invariante sigue
+# en 0 filas (el movimiento `Stock inicial` del libro descartable es previo).
+# RN-10, RN-13.
+# @no-cookie-jar
 POST {{host}}/ventas/
 Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
 
 {
   "cliente_id": {{cliente_id}},
-  "renglones": [ { "libro_id": {{rayuela_id}}, "cantidad": 2147483648 } ]
+  "renglones": [
+    { "libro_id": {{libro_baja.response.body.$.id}}, "cantidad": 1 }
+  ]
 }
 
-### C-16 fix · campo extra `precio` -> 422
-# Esperado: 422 con detail[0].msg = "El campo no está permitido".
+# ---------------------------------------------------------------------------
+# C-16 · Contrato del cuerpo de venta (todo 422, sin escrituras)
+# ---------------------------------------------------------------------------
+
+### C-16.1 · `renglones: []` -> 422
+# Esperado: 422
+# Esperado (cuerpo): {"detail":[{"loc":["body","renglones"],
+#   "msg":"La lista no puede estar vacía","type":"too_short"}]}
 # RN-09, RN-15.
+# @no-cookie-jar
 POST {{host}}/ventas/
 Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
 
 {
   "cliente_id": {{cliente_id}},
-  "precio": 1,
-  "renglones": [ { "libro_id": {{rayuela_id}}, "cantidad": 1 } ]
+  "renglones": []
 }
 
-### Control final · invariante global en 0 filas
-#   SELECT l.id FROM libro l
-#     LEFT JOIN movimiento_stock m ON m.libro_id = l.id
-#     GROUP BY l.id, l.stock
-#     HAVING l.stock <> COALESCE(SUM(m.cantidad), 0);
-# -> 0 filas (RN-11, CHECKLIST §4).
+### C-16.2 · libro repetido -> 422
+# Esperado: 422 {"detail":"No se puede incluir el mismo libro dos veces en una venta"}
+# El 409 de existencia gana al 422 del contrato: acá el libro existe y hay
+# stock agregado suficiente, así que se evalúa el contrato.
+# RN-09.
+# @no-cookie-jar
+POST {{host}}/ventas/
+Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{cliente_id}},
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 },
+    { "libro_id": 1, "cantidad": 1 }
+  ]
+}
+
+### C-16.3 · campo extra `precio` en el renglón/cuerpo -> 422
+# El precio lo copia el servidor desde `libro.precio`.
+# Esperado: 422
+# Esperado (cuerpo): {"detail":[{"loc":["body","precio"],
+#   "msg":"El campo no está permitido","type":"extra_forbidden"}]}
+# RN-09, RN-15.
+# @no-cookie-jar
+POST {{host}}/ventas/
+Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{cliente_id}},
+  "precio": "1.00",
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 }
+  ]
+}
+
+### C-16.4 · campo extra `total` -> 422
+# El total se calcula en el servidor.
+# Esperado: 422 con `loc: ["body","total"]` y `type: extra_forbidden`.
+# RN-09, RN-15.
+# @no-cookie-jar
+POST {{host}}/ventas/
+Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{cliente_id}},
+  "total": "1.00",
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 }
+  ]
+}
+
+### C-16.5 · campo extra `fecha` -> 422
+# La fecha la pone el servidor (`timestamptz`).
+# Esperado: 422 con `loc: ["body","fecha"]` y `type: extra_forbidden`.
+# RN-09, RN-15.
+# @no-cookie-jar
+POST {{host}}/ventas/
+Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{cliente_id}},
+  "fecha": "2020-01-01T00:00:00Z",
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 }
+  ]
+}
+
+### C-16.6 · cantidad 0 -> 422
+# Esperado: 422
+# Esperado (cuerpo): {"detail":[{"loc":["body","renglones",0,"cantidad"],
+#   "msg":"El valor debe ser mayor que el mínimo permitido",
+#   "type":"greater_than_equal"}]}
+# RN-09, RN-15.
+# @no-cookie-jar
+POST {{host}}/ventas/
+Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{cliente_id}},
+  "renglones": [
+    { "libro_id": 1, "cantidad": 0 }
+  ]
+}
+
+# ---------------------------------------------------------------------------
+# C-15 · Venta de 4 renglones (detalle con el mismo número de SELECT)
+# ---------------------------------------------------------------------------
+
+### C-15.1 · venta con 4 renglones -> 201
+# Cliente 1; 1 ejemplar de Rayuela, Antología, Ficciones y Respiración
+# artificial (hay stock de los cuatro).
+# Esperado: 201 con total "104000.00" (25000 + 30000 + 22000 + 27000),
+#   cuatro renglones con `precio_unitario` copiado y `subtotal`.
+# Se deja anotado el id: con `SQL_ECHO=true`, GET /ventas/{este id} debe emitir
+# la MISMA cantidad de SELECT que GET /ventas/1 (2 renglones).
+# RN-09, RN-10, CV-02.
+# @name venta_4renglones
+# @no-cookie-jar
+POST {{host}}/ventas/
+Content-Type: application/json
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{cliente_id}},
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 },
+    { "libro_id": 2, "cantidad": 1 },
+    { "libro_id": 3, "cantidad": 1 },
+    { "libro_id": 4, "cantidad": 1 }
+  ]
+}
+
+### C-15.2 · detalle de la venta de 4 renglones -> 200
+# Esperado: 200 con 4 renglones; mismo formulario de consultas que la venta 1.
+# RN-09, CV-02.
+# @no-cookie-jar
+GET {{host}}/ventas/{{venta_4renglones.response.body.$.id}}
+Cookie: {{login_vendedor.response.headers.Set-Cookie}}
+
+### C-10.4 · control final del invariante global -> 0 filas
+# SELECT l.id FROM libro l
+# LEFT JOIN movimiento_stock m ON m.libro_id = l.id
+# GROUP BY l.id, l.stock
+# HAVING l.stock <> COALESCE(SUM(m.cantidad), 0);
+# -- 0 filas (RN-11, checklist §4).
