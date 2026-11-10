@@ -23,6 +23,12 @@ despliegue: `Dockerfile`, `.dockerignore`, `env.example`, `DEPLOY.md` y
 > crudo del builder, pero la imagen resultante quedó `running | healthy` y el
 > `Dockerfile` copia `requirements.txt` antes del código.
 
+> **Actualización de la Evaluación Global (2026-11-10).** `main.py` suma
+> `CORSMiddleware` (`allow_origins=["*"]`, `allow_credentials=False`) para permitir
+> el desarrollo local del frontend desde otro origen. En producción Nginx publica
+> front y API bajo el mismo origen y el middleware no interviene. No cambia ningún
+> endpoint, esquema ni migración. El resto de este documento sigue vigente.
+
 ## Qué queda dentro de la imagen
 
 | Pieza | Por qué está en la imagen |

@@ -25,6 +25,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import crear_engine, crear_sessionmaker
@@ -61,6 +62,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="la librería", version="0.1.0", lifespan=lifespan)
+
+# CORS para desarrollo local: la web puede servirse desde otro origen (por
+# ejemplo http://127.0.0.1:8080) y consumir /api. En producción Nginx publica
+# frontend y API bajo el mismo origen, así que este middleware no interviene.
+# Este backend no usa cookies ni cabeceras de autorización, por eso se permite
+# cualquier origen sin credenciales.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Grupo abierto: salud + catálogo + clientes + ventas (TP cap. 1-4).
 app.include_router(health_router)
