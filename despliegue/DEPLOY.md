@@ -1,6 +1,8 @@
 # Despliegue — imagen Docker del TP capítulos 1 a 4
 
-- **URL pública**: <https://libreria.enzogiaquinta.me>
+- **URL pública**: <https://libreria.enzogiaquinta.me> — *histórica*: desde el
+  2026-11-11 ese dominio sirve el frontend integrado y la API no tiene dominio
+  público (se consume por `/api` a través del frontend).
 - **Puesto en línea**: **2026-11-08** (UTC-3). La venta 4 quedó registrada a las
   **17:26:19 UTC-3**, lo que confirma el servicio ya operativo; la evidencia
   D-01…D-07 se registró a las 18:46 UTC-3.
@@ -28,6 +30,12 @@ despliegue: `Dockerfile`, `.dockerignore`, `env.example`, `DEPLOY.md` y
 > el desarrollo local del frontend desde otro origen. En producción Nginx publica
 > front y API bajo el mismo origen y el middleware no interviene. No cambia ningún
 > endpoint, esquema ni migración. El resto de este documento sigue vigente.
+>
+> **Dominio (2026-11-11).** `libreria.enzogiaquinta.me` pasó a servir el frontend
+> integrado y el servicio `libreria-api` ya no tiene dominio público: se consume
+> por `/api` a través del frontend, por la red interna. Las referencias a esa URL
+> como API en este documento, en D-03 y en D-04 corresponden al despliegue del
+> segundo parcial (2026-11-08) y se conservan como registro histórico.
 
 ## Qué queda dentro de la imagen
 
@@ -168,7 +176,8 @@ En el runtime de EasyPanel, el contenedor se localiza por nombre:
 CID=$(docker ps --filter name=libreria-api --filter status=running -q | head -n1)
 docker inspect "$CID" --format '{{.State.Status}} | {{if .State.Health}}{{.State.Health.Status}}{{end}}'
 docker exec "$CID" python -m alembic current
-curl -s -o /dev/null -w 'health=%{http_code}\n' https://libreria.enzogiaquinta.me/health/ready
+# histórico: desde 2026-11-11 este dominio sirve el frontend; la API va por /api
+curl -s -o /dev/null -w 'health=%{http_code}\n' https://libreria.enzogiaquinta.me/api/health/ready
 ```
 
 ## Cambios al TP
